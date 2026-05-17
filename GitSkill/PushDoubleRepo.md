@@ -45,7 +45,7 @@ git push github github:main
 git stash
 ```
 
-git stash 只针对没有暂存的文件
+[[Stash]] 只针对没有暂存的文件
 
 ## 切到 `github` 分支，把口袋里的修改拿出来：
 
