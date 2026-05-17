@@ -67,7 +67,7 @@ git stash apply
 
 你在 `main` 分支写好了功能，正常 `git add` 和 `git commit -m "feat: news feature"`。
 
-运行 `git log -n 1 --oneline` 复制这笔提交的哈希值（比如 `c4d5e6f`）。
+运行 `git log -n 1 --oneline` 复制这笔提交的哈希值（比如 `c4d5e6f`）。[[Log]]
 
 运行 `git push gitcode main:main` 先把进度推给 GitCode。
 
