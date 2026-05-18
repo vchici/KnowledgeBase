@@ -33,9 +33,36 @@ git stash show -p stash@{1}
 ```powershell
 git stash pop stash@{1}
 ```
-## 如果你不确定这段代码放回去之后会不会和当前代码产生严重的冲突，建议使用 `apply` 代替 `pop`
+
+## 丢掉指定的 `git stash`
+
+```powershell
+git stash pop stash@{1}
+```
+
+# 如果你不确定这段代码放回去之后会不会和当前代码产生严重的冲突，建议使用 `apply` 代替 `pop`
 
 ```powershell
 git stash apply stash@{1}
 ```
+
+# rebase之前
+
+```powershell
+git stash -u
+```
+
+暂存 modified（已修改）和 untracked（未跟踪）的文件
+
+其实不需要暂存 untracked 的文件，rebase是重放commit，如果 modified 文件没有 commit，rebase会罢工。
+
+untracked 文件不参与rebase的重放commit，但极端情况下，不暂存 untracked 文件，可能导致冲突：
+
+远端仓库被别人提交了一个和你 untracked 文件同名的文件，rebase会和本地文件撞车，此时会提示：error: The following untracked working tree files would be overwritten by merge...
+
+# stash 和 add
+
+stash：临时清空工作区，把半成品代码先藏(塞)起来，跨分支可见
+
+add：将代码放入stage area，明确下一次commit的文件，和分支绑定
 
