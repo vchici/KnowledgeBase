@@ -27,11 +27,11 @@ git push -u github feature/login
 
 ### 经典使用场景
 
-你在新电脑上通过 `git fetch github` 拿到了 GitHub 上早就存在的 `main` 分支。而你本地此时刚好有一个重命名好的 `gitcode` 本地分支。你想让本地的 `gitcode` 去追踪 GitHub 的 `main`，但你现在还不想推拉代码，只想先把关系定下来：
+你在新电脑上通过 `git fetch github` 拿到了 GitHub 上早就存在的 `main` 分支。而你本地此时刚好有一个重命名好的 `github` 本地分支。你想让本地的 `github` 去追踪 GitHub 的 `main`，但你现在还不想推拉代码，只想先把关系定下来：
 
 ```Bash
 # 格式：git branch --set-upstream-to=远端名/远端分支 本地分支
-git branch --set-upstream-to=github/main gitcode
+git branch --set-upstream-to=github/main github
 ```
 
 # 建立关联之后
