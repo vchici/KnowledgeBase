@@ -43,8 +43,16 @@ git branch --set-upstream-to=github/main github
 
 一旦绑定成功，Git 就会产生记忆。以后你只要在这个分支上，直接输入极其清爽的：
 
-- **`git push`**
-- **`git pull`**
+- `git push`
+- `git pull`
+
+但要注意：
+
+> 如果当前本地分支和上游分支名不同，如此处`git push github gitcode:main`：
+> 
+> 本地分支是github，但上游分支是main，如果push.default是simple（默认值），则使用git push会报错被阻拦，因为要求本地分支名必须和上游分支名一致，否则拒绝 git push。
+> 
+> 需要`git config --global push.default upstream`表示按设置来推送，不管名称是否一致。
 
 Git 会自动在后台帮你补全后面所有的仓库名和分支名。
 
