@@ -47,3 +47,37 @@ git branch --set-upstream-to=github/main gitcode
 - **`git pull`**
 
 Git 会自动在后台帮你补全后面所有的仓库名和分支名。
+
+# push失败原因
+
+## 身份不对
+
+macOS有自带的密码管理器Keychain，当使用HTTPS方式push/pull时，输入的账号密码会被保存到Keychain，下次就不用输入了。
+
+Keychain的工作逻辑是按域名查找
+
+```txt
+Git push → 访问 github.com → 去 Keychain 查找 github.com 的凭据 → 找到旧的 → 自动使用
+```
+
+HTTPS 凭据是按域名存的，不支持同一个域名多账号切换 。
+
+### 解决方案
+
+SSH 就没有这个问题，因为它按 密钥文件 匹配：
+
+```txt
+~/.ssh/id_rsa → 对应 a 账号
+~/.ssh/id_rsa_gitcode → 对应 b 账号
+```
+
+通过 ~/.ssh/config 可以精确指定哪个域名用哪个密钥：
+
+```txt
+Host github.com
+    IdentityFile ~/.ssh/id_rsa
+
+Host gitcode.com
+    IdentityFile ~/.ssh/id_rsa_gitcode
+```
+
