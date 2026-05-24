@@ -46,15 +46,17 @@ git branch --set-upstream-to=github/main github
 - `git push`
 - `git pull`
 
+Git 会自动在后台帮你补全后面所有的仓库名和分支名。
+
 但要注意：
 
 > 如果当前本地分支和上游分支名不同，如此处`git push github gitcode:main`：
 > 
 > 本地分支是github，但上游分支是main，如果push.default是simple（默认值），则使用git push会报错被阻拦，因为要求本地分支名必须和上游分支名一致，否则拒绝 git push。
 > 
-> 需要`git config --global push.default upstream`表示按设置来推送，不管名称是否一致。
-
-Git 会自动在后台帮你补全后面所有的仓库名和分支名。
+> 需要`git config --local push.default upstream`表示按设置来推送，不管名称是否一致。
+> 
+> 实际上推荐本地分支和远程分支同名，所以这里设置--local表示当前仓库比较特殊
 
 # push失败原因
 
