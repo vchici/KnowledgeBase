@@ -14,7 +14,7 @@
 
 ## 文件已修改，已暂存
 
-`git checkout <file>`  → 恢复到暂存区的状态（丢弃工作区修改，保留暂存）
+`git checkout <file>`  → 恢复到暂存区的状态（丢弃工作区修改，保留已暂存的）
 
 这就是为什么 switch 更安全：
 
@@ -25,4 +25,4 @@ git switch main        # 切换到 main 分支 ✓
 git switch main.txt    # 报错，不会执行任何操作 ✓
 ```
 
-工作区的修改丢失，是不能追回的 [[Restore]]
+## 如果想要丢弃修改，见[[Restore]]
