@@ -72,6 +72,8 @@ _**官方网站：[https://motrix.app](https://motrix.app/)**_
 
 https://cf.trackerslist.com/best.txt
 
+https://github.com/XIU2/TrackersListCollection/
+
 # 在 qBittorrent 里做“流量分流”
 
 机场封 BT，核心抓的不是你的“流量速度（Speed）”**，而是你的**“连接数（Connections）”。
