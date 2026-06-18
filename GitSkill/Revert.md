@@ -60,9 +60,9 @@ git revert -n <commit-hash>
 
 # `revert` vs `reset` 的区别
 
-| | `git revert` | `git reset` |
-|---|---|---|
-| 改变历史 | ❌ 不改，新增 commit | ✅ 改，删除 commit |
-| 已 push 的仓库 | ✅ 安全 | ⚠️ 需要 force push |
-| 撤销指定 commit | ✅ 可以 | ❌ 只能从最新往前数 |
-| 协作安全 | ✅ 不影响他人 | ❌ 影响他人 |
+|             | `git revert`   | `git reset`      |
+| ----------- | -------------- | ---------------- |
+| 改变历史        | ❌ 不改，新增 commit | ✅ 改，删除 commit    |
+| 已 push 的仓库  | ✅ 安全           | ⚠️ 需要 force push |
+| 撤销指定 commit | ✅ 可以           | ❌ 只能从最新往前数       |
+| 协作安全        | ✅ 不影响他人        | ❌ 影响他人           |

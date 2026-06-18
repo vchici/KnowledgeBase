@@ -44,7 +44,7 @@ git reset --hard HEAD~3
 
 $$\text{工作区 (Work Dir)} \xrightarrow{\text{git add}} \text{暂存区 (Stage)} \xrightarrow{\text{git commit}} \text{版本库 (History)}$$
 
-## 为什么有些文件回到了工作区会显示未跟踪的状态？
+# 为什么有些文件回到了工作区会显示未跟踪的状态？
 
 原因在于：**这个文件在被撤销的那个 `commit` 之前，在 Git 历史中到底“存不存在”。**
 
