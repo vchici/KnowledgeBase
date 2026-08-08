@@ -1,6 +1,9 @@
 # Obsidian workspace configuration
 .obsidian
 
+# packages
+.packages
+
 # Java compiled artifacts
 *.class
 *.jar
