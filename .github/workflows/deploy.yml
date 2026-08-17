@@ -33,6 +33,12 @@ jobs:
         run: npm ci
       - name: Build with VitePress
         run: npm run docs:build
+      - name: Debug dist contents
+        run: |
+          echo "=== dist root ==="
+          ls -la docs/.vitepress/dist/
+          echo "=== index.html exists? ==="
+          test -f docs/.vitepress/dist/index.html && echo "YES" || echo "NO"
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
