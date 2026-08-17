@@ -1,0 +1,12 @@
+/* 自定义主题样式 */
+
+:root {
+  /* 让整个页面布局占满屏幕宽度，移除默认 1440px 的最大宽度限制 */
+  --vp-layout-max-width: 100%;
+}
+
+/* 移除正文内容区的行宽限制（VitePress 默认限制约 688px），让文本占满可用空间 */
+.VPDoc.has-aside .content-container,
+.VPDoc:not(.has-sidebar) .content {
+  max-width: none !important;
+}
