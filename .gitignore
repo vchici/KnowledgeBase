@@ -58,3 +58,13 @@ Temporary Items
 *.swp
 *.swo
 *~
+
+# Node.js (VitePress)
+node_modules/
+
+# Python virtual environment (uv)
+.venv/
+
+# VitePress build output & cache
+docs/.vitepress/dist/
+docs/.vitepress/cache/
