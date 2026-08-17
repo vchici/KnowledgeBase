@@ -1,160 +1,137 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, relative, basename, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// config.js 位于 docs/.vitepress/ 下，docsDir 即上级的 docs 目录
+const docsDir = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+// 与 VitePress 一致的标题锚点（slug）生成逻辑
+const rControl = /[\u0000-\u001f]/g
+const rSpecial = /[\s~`!@#$%^&*()\-_+=[\]{}|\\;:"'“”‘’<>,.?/]+/g
+const rCombining = /[\u0300-\u036F]/g
+function slugify(str) {
+  return str
+    .normalize('NFKD')
+    .replace(rCombining, '')
+    .replace(rControl, '')
+    .replace(rSpecial, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^(\d)/, '_$1')
+    .toLowerCase()
+}
+
+// 去掉行内 markdown 标记，得到标题纯文本
+function stripInline(text) {
+  return text
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .trim()
+}
+
+// 解析一篇笔记的所有标题，按标题层级（#/##/###…）嵌套成树
+function parseSections(content) {
+  const headings = []
+  let inFence = false
+  let fenceChar = ''
+  let fenceLen = 0
+  for (const line of content.split('\n')) {
+    // 围栏代码块（``` 或 ~~~，允许最多 3 个前导空格）内的 # 注释不算标题
+    const fence = line.match(/^ {0,3}(```+|~~~+)/)
+    if (fence) {
+      const char = fence[1][0]
+      const len = fence[1].length
+      if (!inFence) {
+        inFence = true
+        fenceChar = char
+        fenceLen = len
+      } else if (char === fenceChar && len >= fenceLen && /^ {0,3}(```+|~~~+)[ \t]*$/.test(line)) {
+        inFence = false
+      }
+      continue
+    }
+    if (inFence) continue
+    const m = line.match(/^(#{1,6})\s+(.+?)\s*$/)
+    if (m) {
+      const plain = stripInline(m[2])
+      headings.push({ level: m[1].length, text: plain, anchor: slugify(plain), items: [] })
+    }
+  }
+  const root = { level: 0, items: [] }
+  const stack = [root]
+  for (const h of headings) {
+    while (stack.length > 1 && stack[stack.length - 1].level >= h.level) stack.pop()
+    stack[stack.length - 1].items.push(h)
+    stack.push(h)
+  }
+  return root.items
+}
+
+// 把章节树转成侧边栏子项（拼上文章链接 + #锚点）；有子级的一律可折叠
+function toSidebarItems(nodes, articleLink) {
+  return nodes.map((n) => {
+    const item = { text: n.text, link: `${articleLink}#${n.anchor}` }
+    if (n.items.length) {
+      item.collapsed = false
+      item.items = toSidebarItems(n.items, articleLink)
+    }
+    return item
+  })
+}
+
+// 递归扫描 docs 目录，生成可折叠的侧边栏结构
+function buildSidebar(dir) {
+  const entries = readdirSync(dir).sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  const items = []
+  for (const name of entries) {
+    if (name.startsWith('.')) continue
+    const full = join(dir, name)
+    const stat = statSync(full)
+    if (stat.isDirectory()) {
+      const children = buildSidebar(full)
+      if (children.length) items.push({ text: name, collapsed: true, items: children })
+    } else if (name.endsWith('.md') && name !== 'index.md') {
+      const sections = parseSections(readFileSync(full, 'utf-8'))
+      const articleLink = '/' + relative(docsDir, full).replace(/\\/g, '/').replace(/\.md$/, '')
+      const text = basename(name, '.md')
+      if (sections.length) {
+        items.push({ text, link: articleLink, collapsed: true, items: toSidebarItems(sections, articleLink) })
+      } else {
+        items.push({ text, link: articleLink })
+      }
+    }
+  }
+  return items
+}
+
 export default {
   base: "/KnowledgeBase/", // 二级仓库必须配置
   title: "KnowledgeBase",
   description: "个人技术知识库",
   ignoreDeadLinks: true,
+  markdown: {
+    math: true
+  },
   themeConfig: {
+    // 关闭右侧 “On this page” 大纲（与左侧目录重复）
+    aside: false,
     // 导航栏
     nav: [
       { text: "首页", link: "/" }
     ],
-    // 侧边栏，在这里挂载你的各个文档目录
-    sidebar: [
-      {
-        text: "AI-Code-Calibration",
-        items: [
-          { text: "AI 领域拆解", link: "/AI-Code-Calibration/AI-Region-Breakdown" },
-          { text: "通用防坑层", link: "/AI-Code-Calibration/General-Anti-Patterns" },
-          { text: "Agent & Tool Calling 防坑", link: "/AI-Code-Calibration/Agent-ToolCalling-Anti-Patterns" },
-          { text: "结构化输出防坑", link: "/AI-Code-Calibration/StructuredOutput-Anti-Patterns" }
-        ]
-      },
-      {
-        text: "设计模式",
-        items: [
-          { text: "单例模式", link: "/DesignPattern/单例模式" },
-          { text: "工厂方法", link: "/DesignPattern/工厂方法" },
-          { text: "抽象工厂", link: "/DesignPattern/抽象工厂" },
-          { text: "适配器", link: "/DesignPattern/适配器" },
-          { text: "装饰器", link: "/DesignPattern/装饰器" },
-          { text: "代理模式", link: "/DesignPattern/代理模式" },
-          { text: "模板方法", link: "/DesignPattern/模板方法" },
-          { text: "策略接口", link: "/DesignPattern/策略接口" }
-        ]
-      },
-      {
-        text: "GC",
-        items: [
-          { text: "内存泄漏", link: "/GC/内存泄漏" },
-          { text: "内部类会隐式持有外部类引用", link: "/GC/内部类会隐式持有外部类引用" },
-          { text: "方法区", link: "/GC/方法区" }
-        ]
-      },
-      {
-        text: "GitSkill",
-        items: [
-          { text: "CherryPick", link: "/GitSkill/CherryPick" },
-          { text: "Clone", link: "/GitSkill/Clone" },
-          { text: "LFS", link: "/GitSkill/LFS" },
-          { text: "Log", link: "/GitSkill/Log" },
-          { text: "Pull", link: "/GitSkill/Pull" },
-          { text: "Push", link: "/GitSkill/Push" },
-          { text: "Rebase", link: "/GitSkill/Rebase" },
-          { text: "Reset", link: "/GitSkill/Reset" },
-          { text: "Restore", link: "/GitSkill/Restore" },
-          { text: "Revert", link: "/GitSkill/Revert" },
-          { text: "Stash", link: "/GitSkill/Stash" },
-          { text: "Switch", link: "/GitSkill/Switch" },
-          {
-            text: "scenario",
-            items: [
-              { text: "PushDoubleRepo", link: "/GitSkill/scenario/PushDoubleRepo" },
-              { text: "ssh config", link: "/GitSkill/scenario/ssh config" }
-            ]
-          }
-        ]
-      },
-      {
-        text: "Health",
-        items: [
-          {
-            text: "血液循环",
-            items: [
-              { text: "供血功能", link: "/Health/血液循环/供血功能" },
-              { text: "爬楼机", link: "/Health/血液循环/爬楼机" },
-              { text: "磷虾胶囊", link: "/Health/血液循环/磷虾胶囊" }
-            ]
-          }
-        ]
-      },
-      {
-        text: "JavaWeb",
-        items: [
-          { text: "Goroutine", link: "/JavaWeb/Goroutine" },
-          { text: "Servlet", link: "/JavaWeb/Servlet" },
-          { text: "Spring Boot", link: "/JavaWeb/Spring Boot" },
-          { text: "Spring MVC", link: "/JavaWeb/Spring MVC" },
-          { text: "Spring通关-1-Java内功", link: "/JavaWeb/Spring通关-1-Java内功" },
-          { text: "Spring通关-2-IoC-DI", link: "/JavaWeb/Spring通关-2-IoC-DI" },
-          { text: "Spring通关-3-SpringBoot实战", link: "/JavaWeb/Spring通关-3-SpringBoot实战" },
-          { text: "Spring通关-4-AOP与数据库", link: "/JavaWeb/Spring通关-4-AOP与数据库" },
-          { text: "Tomcat Servlet JSP Spring", link: "/JavaWeb/Tomcat Servlet JSP Spring" },
-          { text: "Tomcat", link: "/JavaWeb/Tomcat" }
-        ]
-      },
-      {
-        text: "LangChain",
-        items: [
-          { text: "00-大模型API接口规范", link: "/LangChain/00-大模型API接口规范/00-大模型API接口规范" },
-          { text: "01-模型初始化", link: "/LangChain/01-模型初始化/01-模型初始化" },
-          { text: "02-模型调用", link: "/LangChain/02-模型调用/02-模型调用" },
-          { text: "03-在智能体中使用模型", link: "/LangChain/03-在智能体中使用模型/03-在智能体中使用模型" },
-          { text: "04-多模态消息", link: "/LangChain/04-消息格式/04-多模态消息" },
-          { text: "04-消息", link: "/LangChain/04-消息格式/04-消息" },
-          { text: "05-提示词工程", link: "/LangChain/05-提示词工程/05-提示词工程" },
-          { text: "06-工具", link: "/LangChain/06-工具/06-工具" },
-          { text: "06-预定义工具", link: "/LangChain/06-工具/06-预定义工具" },
-          { text: "07-短期记忆", link: "/LangChain/07-短期记忆/07-短期记忆" },
-          { text: "08-记忆管理策略", link: "/LangChain/08-记忆管理策略/08-记忆管理策略" },
-          { text: "09-私厨管家", link: "/LangChain/09-私厨管家/09" },
-          { text: "Prompt模板", link: "/LangChain/Prompt模板" },
-          { text: "RAG检索增强生成", link: "/LangChain/RAG检索增强生成" },
-          { text: "工具深入", link: "/LangChain/工具深入" },
-          { text: "记忆管理", link: "/LangChain/记忆管理" },
-          { text: "输出解析器", link: "/LangChain/输出解析器" },
-          { text: "链", link: "/LangChain/链" }
-        ]
-      },
-      {
-        text: "Magnet",
-        items: [
-          { text: "快速下载Magnet", link: "/Magnet/快速下载Magnet" }
-        ]
-      },
-      {
-        text: "Thread",
-        items: [
-          { text: "Lock - synchronized", link: "/Thread/Lock/synchronized" }
-        ]
-      },
-      {
-        text: "Tool",
-        items: [
-          { text: "常用命令行工具", link: "/Tool/Windows/常用命令行工具" },
-          { text: "快捷键大全", link: "/Tool/Windows/快捷键大全" },
-          { text: "操作无法完成（文件夹已在另一程序打开）", link: "/Tool/Windows/操作无法完成，因为其中的文件夹或文件已在另一程序打开" },
-          { text: "文件搜索神器Everything", link: "/Tool/Windows/文件搜索神器Everything" },
-          { text: "文件权限问题解决", link: "/Tool/Windows/文件权限问题解决" },
-          { text: "端口被占用如何解决", link: "/Tool/Windows/端口被占用如何解决" },
-          { text: "系统卡顿排查与优化", link: "/Tool/Windows/系统卡顿排查与优化" },
-          { text: "配置环境变量", link: "/Tool/Windows/配置环境变量" }
-        ]
-      },
-      {
-        text: "UML",
-        items: [
-          { text: "时序图", link: "/UML/时序图" },
-          { text: "类图", link: "/UML/类图" }
-        ]
-      },
-      {
-        text: "VPN",
-        items: [
-          { text: "config", link: "/VPN/config" },
-          { text: "hide", link: "/VPN/hide" },
-          { text: "scan", link: "/VPN/scan" }
-        ]
-      }
-    ]
+    // 侧边栏：自动扫描 docs 目录，文章名 + 按标题层级嵌套成树，均可折叠
+    sidebar: buildSidebar(docsDir)
+  },
+  // 覆写 VitePress 内部的 VPSidebarItem，实现「当前/祖先展开，其余折叠」的手风琴效果
+  vite: {
+    resolve: {
+      alias: [
+        {
+          find: /^\.\/VPSidebarItem\.vue$/,
+          replacement: fileURLToPath(new URL('./theme/VPSidebarItem.vue', import.meta.url))
+        }
+      ]
+    }
   }
 }
