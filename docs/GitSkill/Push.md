@@ -1,6 +1,6 @@
 # 完整情况
 
-$$\text{格式：}\quad \text{git push [远程仓]} \quad \underbrace{\text{refs/heads/本地分支名}}_{\text{源引用 (Source)}} : \underbrace{\text{refs/heads/远端分支名}}_{\text{目的引用 (Destination)}}$$
+$$\text{git push [remote repo]} \quad \underbrace{\text{refs/heads/local branch}}_{\text{源引用 (Source)}} : \underbrace{\text{refs/heads/remote branch}}_{\text{目的引用 (Destination)}}$$
 
 如果本地分支名和远端分支名名字不同，只说明远程仓名，防呆保护会拒绝执行，必须显示说明分支名。
 

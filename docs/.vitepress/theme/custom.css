@@ -10,3 +10,8 @@
 .VPDoc:not(.has-sidebar) .content {
   max-width: none !important;
 }
+
+.hl-purple {
+  color: #8053cd;
+  border-bottom: 2px solid #8053cd;
+}

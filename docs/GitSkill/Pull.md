@@ -6,20 +6,25 @@
     
 - 如果你之前推送到 Fork 仓的 Commit 还没有被上游原仓库合并（Merge），那么在同步的那一瞬间，**你的 Commit 就会从 Fork 仓的分支线路上被无情抹去**。
 
-在此之后，git pull -rebase 会发生不重放的问题。
+在此之后，`git pull --rebase` 会发生不重放的问题。
 
 ## `git pull --rebase` 为什么没有重放？
 
-在你点击同步后，本地执行 `git pull --rebase`，Git 内部会做以下几件事：
+前提：你本地有提交 B、C（C 已 push 到你的 Fork），点了「Sync fork」后远端 Fork 的 `main` 被强推到上游的 E（A → D → E），C 在远端被抹掉。
 
-1. **Fetch**：把远程 Fork 仓（已被上游覆盖）的最新的提交线索拉取到本地（更新了 `origin/main`）。
-    
-2. **Rebase**：Git 开始对比你本地的分支和 `origin/main`。
-    
-3. **关键点就在这里**：Git 在 rebase 时有一个智能识别机制（`git patch-id`）。由于远程仓库已经被上游同步，Git 会认为“远程已经是最新且正确的权威状态”。如果它检测到你本地的某些 Commit 已经在远程的演进历史中被包含（或者因为同步导致冲突基底改变），或者 Git 误判了提交树的走向，它在重放时就会直接跳过（drop）你本地的那些 Commit。
-    
+此时本地执行 `git pull --rebase`（本质 = `git fetch` + `git rebase`）：
 
-最终的结果就是：你本地的 commit “消失”了，变成了和远程一模一样的干净状态。
+1. **Fetch**：拉取远端最新状态，本地 `origin/main` 从 C 更新为 E。
+
+2. **Rebase 先要确定「哪些本地提交需要重放」**：本应重放本地独有、远端没有的提交（也就是 B、C）。
+
+3. **关键点——fork-point（分叉点）机制**：`git pull --rebase` 默认开启 `--fork-point`。Git 会去翻 `origin/main` 的 reflog，寻找「它最近一次指向过、且是当前本地分支祖先的提交」。因为你之前 push 过 C，reflog 里就躺着 C，于是 Git 把分叉点误判成 C。
+
+4. **重放范围变成 `C..本地分支`**：而你的本地分支尖恰好就是 C，`C..C` 是空集 → Git 认为「没有提交需要重放」，直接把分支指到 E。
+
+5. **结果**：B、C 没有被重放、从分支上消失，本地变成和远程一模一样的 E。
+
+注意：这和 `patch-id` 是两码事。`patch-id` 是「你的改动已被上游以相同内容合并（如 PR 被 squash/cherry-pick）时跳过重复提交」；而同步 Fork 后提交消失，主因是 fork-point 把分叉点误判到了已 push 的 C 上。提交并没有真正丢失，reflog 里还留着（见下一节）。想避免这种情况，可用 `git pull --rebase --no-fork-point` 强制从真正的合并基点重放。
 
 ## 但是，Git Reflog可以救场
 

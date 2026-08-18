@@ -1,10 +1,10 @@
-撤销**指定的某次 commit**，用 `git revert`：
+> 撤销指定的某次 commit，用 `git revert`：
 
 ```bash
 git revert <commit-hash>
 ```
 
-这会创建一个**新的 commit**，内容就是"反转"指定 commit 的修改，不会改变历史。
+这会<span class="hl-purple">自动</span>创建一个新的 commit，内容就是"反转"指定 commit 的修改，不会改变历史。
 
 ---
 
@@ -24,8 +24,8 @@ git revert C
 
 ```
 A → B → C → D → E → C'
-                      ↑
-               反转C的修改（新commit）
+                    ↑
+           反转C的修改（新commit）
 ```
 
 ---
