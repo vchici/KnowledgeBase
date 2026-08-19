@@ -1,6 +1,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, basename, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+// vitepress-plugin-mermaid 是纯 ESM 包，vitepress 以 CJS 方式加载 config.js 时 require 会失败，
+// 所以直接相对路径引入其 ESM 入口，由 esbuild 打进 config bundle（仅 node 侧，客户端仍是正常的 ESM 包解析）
+import { withMermaid } from '../../node_modules/vitepress-plugin-mermaid/dist/vitepress-plugin-mermaid.es.mjs'
 
 // config.js 位于 docs/.vitepress/ 下，docsDir 即上级的 docs 目录
 const docsDir = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -105,7 +108,7 @@ function buildSidebar(dir) {
   return items
 }
 
-export default {
+export default withMermaid({
   base: "/KnowledgeBase/", // 二级仓库必须配置
   title: "KnowledgeBase",
   description: "个人技术知识库",
@@ -150,4 +153,4 @@ export default {
       ]
     }
   }
-}
+})

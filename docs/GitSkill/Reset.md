@@ -14,10 +14,10 @@ git reset --soft HEAD~3
 git reset --mixed HEAD~3
 ```
 
-# 3. `git reset --hard`（彻底丢弃修改 ⚠️）
+# 3. `git reset --hard`（彻底丢弃修改）
 
 ```bash
-# 撤销最近 3 次 commit，代码修改全部丢弃，不可恢复。
+# 撤销最近 3 次 commit，代码修改全部丢弃，可以通过reflog恢复
 git reset --hard HEAD~3
 ```
 
