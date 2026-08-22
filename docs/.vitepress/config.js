@@ -111,7 +111,23 @@ export default {
   description: "个人技术知识库",
   ignoreDeadLinks: true,
   markdown: {
-    math: true
+    math: true,
+    config: (md) => {
+      // ```python-run 代码块 → PythonRunner 组件（浏览器端 Pyodide 在线运行）
+      const defaultFence = md.renderer.rules.fence
+      md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+        const info = tokens[idx].info.trim()
+        if (info.startsWith('python-run')) {
+          const code = JSON.stringify(tokens[idx].content)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+          return `<PythonRunner :code="${code}"/>\n`
+        }
+        return defaultFence(tokens, idx, options, env, self)
+      }
+    }
   },
   themeConfig: {
     // 关闭右侧 “On this page” 大纲（与左侧目录重复）

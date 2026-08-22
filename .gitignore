@@ -62,6 +62,9 @@ Temporary Items
 # Node.js (VitePress)
 node_modules/
 
+# npm 本地缓存（项目级 .npmrc 指定）
+.npm-cache/
+
 # Python virtual environment (uv)
 .venv/
 
