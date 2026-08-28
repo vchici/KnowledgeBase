@@ -76,3 +76,6 @@ docs/.vitepress/cache/
 VPN/
 # 健康隐私笔记（本地保留，不入库）
 docs/Health/
+
+# 磁力下载笔记（本地保留，不入库）
+docs/Magnet/
