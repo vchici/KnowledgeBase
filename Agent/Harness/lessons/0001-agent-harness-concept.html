@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 1 课 · Agent Harness：你已经建过一个</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-kicker">HARNESS 课程 · 第 1 课 / 约 12 分钟</div>
+<h1>Agent Harness：你已经建过一个，只是不知道它的名字</h1>
+<div class="lesson-meta">
+  本课目标：建立 Model + Harness 的心智模型，并用它重新看清你的 dailyreport。<br>
+  课程使命：<a href="../MISSION.md">把 dailyreport 升级为 AI 编程工具生态的一等公民</a> ·
+  速查表：<a href="../reference/harness-cheatsheet.html">Harness 备忘单</a>
+</div>
+
+<h2>一、先看一个 16 分的问题</h2>
+<p>同一个 Claude Opus 模型，跑 Terminal-Bench 2.0 基准测试：在 Cursor 里得 <strong>93 分</strong>，在 Claude Code 里得 <strong>77 分</strong>。模型权重一个字都没变——<strong>16 分的差距，全部来自模型之外的那层工程</strong>。这就是 2026 年被广泛讨论的 <a href="https://codex.danielvaughan.com/2026/04/19/the-harness-effect-same-model-different-tool-different-score/">Harness Effect</a>：换 harness 的收益，可以大到超过换一个模型。</p>
+
+<h2>二、公式与定义</h2>
+<div class="formula">Coding Agent<span class="op">=</span>AI Model<span class="op">+</span>Harness</div>
+<p>这个公式由 <a href="https://www.vtrivedy.com/posts/claude-code-sdk-haas-harness-as-a-service">Viv Trivedy 提出</a>，2026 年 2 月经 HashiCorp 联合创始人 Mitchell Hashimoto 推广后成为社区共识。Harness（原意「马的挽具」）指<strong>包裹在模型外层的全部运行时工程</strong>：系统提示、工具注册与分发、权限、上下文管理、记忆、子代理编排。</p>
+
+<blockquote>
+  「Harness 工程：每当发现 agent 犯了一个错，就花时间做一个工程方案，让它<strong>永远不再犯这类错</strong>。」
+  <span class="who">—— Mitchell Hashimoto</span>
+</blockquote>
+
+<p>一个完整的 harness，通常由五大件组成（<a href="https://blog.csdn.net/qq_38590739/article/details/160920227">拆解详文</a>）：</p>
+<table>
+  <thead><tr><th>五大件</th><th>回答的问题</th><th>例子</th></tr></thead>
+  <tbody>
+    <tr><td><strong>工具分发</strong></td><td>模型「说」想读文件后，谁去真读？</td><td>MCP 工具调用、Shell 执行</td></tr>
+    <tr><td><strong>权限门控</strong></td><td>哪些操作放行、哪些要问用户？</td><td>deny / ask / allow 三级评估</td></tr>
+    <tr><td><strong>上下文管理</strong></td><td>什么进上下文窗口，什么被挡在外面？</td><td>检索 top-k、历史压缩、渐进披露</td></tr>
+    <tr><td><strong>记忆</strong></td><td>跨会话还记得什么？</td><td>AGENTS.md / CLAUDE.md / 数据库</td></tr>
+    <tr><td><strong>子任务编排</strong></td><td>大任务怎么拆、分给谁？</td><td>意图分发、子代理并行</td></tr>
+  </tbody>
+</table>
+
+<div class="callout aha">
+  <span class="tag">AHA 时刻</span>
+  为什么模型再强也替代不了 harness？三个理由：<strong>① 模型没有操作系统权限</strong>（它只能输出文本，是 harness 把文本变成真实操作）；<strong>② 模型无法自我约束</strong>（代码逻辑不会被话术说服）；<strong>③ 单次推理有上限</strong>（长任务必须靠 harness 分片与压缩）。
+</div>
+
+<h2>三、你已经建过一个 harness：dailyreport</h2>
+<p>这是本课最重要的一节。把五大件往 dailyreport 上一贴——你会发现<strong>五个里你已经做了四个</strong>：</p>
+
+<table>
+  <caption>映射基于 dailyreport 真实源码（src/ 目录），非虚构示例。</caption>
+  <thead><tr><th>Harness 五大件</th><th>dailyreport 中的实现</th><th>判定</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>工具分发</td>
+      <td><code>mcp_server.py</code> 向 TRAE 暴露 12 个 MCP 工具（record_plan / record_done / search_entries / generate_report…），由 TRAE 这个大 harness 调度</td>
+      <td class="yes">已有</td>
+    </tr>
+    <tr>
+      <td>上下文管理</td>
+      <td><code>orchestrator.py</code> 只保留最近 8 轮对话（README 原话：「避免历史过长稀释注意力」）；<code>retriever.py</code> 双路加权检索只取 top-k；解析用 <code>temperature=0.3</code> 求稳定</td>
+      <td class="yes">已有</td>
+    </tr>
+    <tr>
+      <td>记忆</td>
+      <td><code>storage.py</code> 按日期持久化 JSON / Markdown（data/、reports/、plans/），跨会话可查</td>
+      <td class="yes">已有</td>
+    </tr>
+    <tr>
+      <td>子任务编排</td>
+      <td><code>text_parser.py</code> 把输入解析成 intent / events / entities，<code>auto_dispatch</code> 分发到对应处理函数，且避免重复解析</td>
+      <td class="yes">已有</td>
+    </tr>
+    <tr>
+      <td>权限门控</td>
+      <td>几乎没有——任何输入都会被解析、存储、检索</td>
+      <td class="no">缺失</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>换句话说：<strong>你上周写的「避免历史稀释注意力」，在社区里有个正式的名字，叫 harness engineering。</strong>你不是要「入门 harness」，你是要给自己的两个 harness（TRAE 与 dailyreport）<strong>补上缺失的部件</strong>。</p>
+
+<div class="callout warn">
+  <span class="tag">注意</span>
+  还缺两样东西，恰好都是「harness 插件」能补的：<strong>① 权限/自动化机制（hooks）</strong>——比如会话开始时自动查今日状态；<strong>② 技能（skills）</strong>——教 TRAE「什么时候、以什么姿势」调用你的 12 个工具。这正是本课程主线。
+</div>
+
+<h2>四、那「harness 插件」到底是什么</h2>
+<p>把 harness 的某个部件（技能、钩子、子代理定义）写成<strong>标准格式的文件、打包分发</strong>，就是 harness 插件。最小单位是一个带 YAML frontmatter 的 <code>SKILL.md</code>（<a href="https://docs.anthropic.com/en/docs/claude-code/skills">官方规范</a>，也是 <a href="https://agentskills.io/">跨工具开放标准</a>）：</p>
+
+<pre><code>---
+description: 记录工作进展到 dailyreport。
+  Use when 用户提到完成了某项工作、想记录待办或生成日报。
+---
+## Instructions
+调用 ai-dailyreport 的 record_done / record_plan / generate_report 工具，
+把结果用两三句话反馈给用户。</code></pre>
+
+<p>关键机制是<strong>渐进式披露（progressive disclosure）</strong>：frontmatter 里的 description 常驻上下文（几十 token），正文只在被触发时加载。所以技能库可以很大而不占日常窗口——这与你在 retriever 里「只取 top-k」是同一个思想。</p>
+
+<p>而 GitHub 上 4.5k star 的 <a href="https://github.com/revfactory/harness">revfactory/harness</a> 是个「meta-factory」插件：你说一句 <em>「build a harness for this project」</em>，它自动做领域分析 → 选 6 种团队架构之一 → 生成 <code>.claude/agents/</code> 和 <code>.claude/skills/</code>。它背后的 <a href="https://github.com/revfactory/claude-code-harness">A/B 实验</a>显示：同一模型，加 harness 配置后任务均分 49.5 → 79.3（+60%），且任务越难提升越大。</p>
+
+<h2>五、检测一下（检索练习）</h2>
+<p>凭记忆作答，别往上翻——错了会标红，可以重选；答对立即解锁解析。</p>
+
+<div data-quiz="q1"></div>
+<div data-quiz="q2"></div>
+<div data-quiz="q3"></div>
+<div class="quiz-summary"></div>
+
+<h2>六、小结与下一步</h2>
+<p>本课三个新术语（理解后我会录入 <a href="../GLOSSARY.md">术语表</a>）：<strong>Harness</strong>（模型外层的运行时工程，公式 AI Model + Harness）、<strong>Harness Effect</strong>（同模型、不同 harness 造成的表现差距）、<strong>渐进式披露</strong>（元数据常驻、正文按需加载的上下文经济术）。</p>
+
+<div class="callout next">
+  <span class="tag">下一课预告</span>
+  第 2 课「插件解剖」：SKILL.md 的 frontmatter 字段逐个讲、.claude-plugin/plugin.json 怎么把技能升级为插件、hooks 在什么时机被谁触发——全部对齐官方文档，并对照 revfactory/harness 的真实目录结构。
+</div>
+
+<h3>推荐阅读（一手资料，按优先级）</h3>
+<ul>
+  <li><strong>精读</strong>：<a href="https://www.benzanghi.com/blog/harness-engineering">Harness Engineering — Ben Zanghi</a>（四杠杆框架，英文，8 分钟）</li>
+  <li><strong>通读</strong>：<a href="https://blog.csdn.net/qq_38590739/article/details/160920227">Agent Harness 深度解析（CSDN，中文长文）</a>——本课「五大件」的展开版</li>
+  <li><strong>浏览</strong>：<a href="https://github.com/revfactory/harness">revfactory/harness 仓库</a>——只看 README 和目录结构，混个脸熟</li>
+</ul>
+
+<footer>
+  卡住了？概念没吃透？直接在对话框里问我（你的 agent 就是你的老师），例如：「渐进式披露和我的 retriever top-k 有什么本质区别？」 ·
+  课程速查：<a href="../reference/harness-cheatsheet.html">Harness 备忘单</a> ·
+  资源库：<a href="../RESOURCES.md">RESOURCES.md</a>
+</footer>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script>
+renderQuizzes({
+  q1: {
+    q: "同一个 Claude Opus 在 Cursor 得 93 分、在 Claude Code 得 77 分（Terminal-Bench 2.0）。16 分差距的最主要来源是？",
+    options: [
+      { t: "模型的权重不一样", why: "题目前提就是「同一个模型」——权重完全相同。" },
+      { t: "外层 harness 不同", ok: true },
+      { t: "温度参数被调低了", why: "评测基准通常固定解码参数；16 分的差距无法用温度解释。" },
+      { t: "测试的题目不一样", why: "同一个 benchmark（Terminal-Bench 2.0），题目相同。" }
+    ],
+    explain: "模型一字未变，差距全部来自模型外层工程——工具暴露、上下文管理、权限模型等。这正是「Harness Effect」的定义，也是「换 harness 可能比换模型更划算」的依据。"
+  },
+  q2: {
+    q: "dailyreport 的 orchestrator.py 只保留最近 8 轮对话「避免历史稀释注意力」。这属于 harness 五大件中的哪一件？",
+    options: [
+      { t: "工具分发", why: "工具分发是把模型的调用意图变成真实操作（如 MCP 工具调用），与历史截断无关。" },
+      { t: "上下文管理", ok: true },
+      { t: "权限门控", why: "权限门控决定操作放行与否（deny/ask/allow），不管理上下文内容。" },
+      { t: "记忆", why: "接近了！但「记忆」指跨会话持久化（storage.py 做的事）；8 轮截断是运行期对上下文窗口的管理。" }
+    ],
+    explain: "「什么进窗口、什么被挡在外面」就是上下文管理。你截断历史、检索只取 top-k、temperature=0.3 稳定解析，三件事全是 harness engineering 的上下文管理件——你早就在做了。"
+  },
+  q3: {
+    q: "revfactory/harness 这个插件的核心工作方式是？",
+    options: [
+      { t: "微调模型权重", why: "它完全不碰模型，产出物只是配置文件。" },
+      { t: "生成团队配置", ok: true },
+      { t: "加密用户数据", why: "与安全加密无关。" },
+      { t: "托管云端推理", why: "它不是推理服务，跑在你本地的 Claude Code 里。" }
+    ],
+    explain: "一句话「build a harness for this project」→ 6 阶段流水线（领域分析→团队架构→agent 定义→技能生成→编排→验证）→ 产出 .claude/agents/ 与 .claude/skills/ 配置。它是「生成 harness 的 harness」（meta-factory）。"
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 2 课 · 插件解剖：可插拔到底指什么，代码写在哪</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<div class="lesson-kicker">HARNESS 课程 · 第 2 课 / 约 15 分钟</div>
+<h1>插件解剖：可插拔到底指什么，代码写在哪</h1>
+<div class="lesson-meta">
+  起因：一个好问题——「你说我四大件都做完了，那可插拔的插件呢？」<br>
+  前置：<a href="0001-agent-harness-concept.html">第 1 课 · Agent Harness 概念</a> ·
+  速查：<a href="../reference/harness-cheatsheet.html">Harness 备忘单</a>
+</div>
+
+<h2>一、纠偏：两个独立的坐标轴</h2>
+<p>第 1 课的映射表说的是「<strong>组件完备性</strong>」——一个 harness 要<strong>做</strong>的五件事（工具分发、权限、上下文、记忆、编排），dailyreport 做了四件。但你问的是「<strong>可插拔性</strong>」——这个 harness 能不能<strong>被扩展</strong>。这是两个正交的维度：</p>
+
+<table>
+  <caption>浏览器类比：Chrome 的渲染引擎、JS 引擎是「组件」；Chrome 商店那一整套 manifest + 加载器 + 权限声明，才是「可插拔机制」。</caption>
+  <thead><tr><th></th><th>组件完备吗？（能不能干活）</th><th>可插拔吗？（能不能被第三方扩展）</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Claude Code</strong></td><td class="yes">完备</td><td class="yes">有（skills / hooks / agents / MCP 四类扩展点）</td></tr>
+    <tr><td><strong>dailyreport</strong></td><td class="yes">四大件 + MCP 工具面</td><td class="no">没有——12 个工具硬编码在 mcp_server.py，编排逻辑写死在 orchestrator.py</td></tr>
+  </tbody>
+</table>
+
+<p>所以准确的说法是：<strong>你造了一个 harness，但还没给它造「插件系统」。</strong>上一课说「都做完了」指的是前者，你的直觉指后者——两者都对，缺的是区分。</p>
+
+<div class="callout aha">
+  <span class="tag">AHA 时刻</span>
+  可插拔的本质 = <strong>宿主预留扩展点 + 插件满足契约 + 宿主运行时加载</strong>。三样缺一不可：没有扩展点，插件没处安放；没有契约（manifest / 协议），宿主不认识插件；没有加载器，文件只是死文本。
+</div>
+
+<h2>二、可插拔阶梯：L0 → L3</h2>
+<p>「可插拔」不是开关，是阶梯。每上一级，扩展者需要的<strong>编程知识更少</strong>、但<strong>受宿主的约束更多</strong>：</p>
+
+<table>
+  <thead><tr><th>层级</th><th>扩展方式</th><th>扩展者写什么</th><th>dailyreport 现状</th></tr></thead>
+  <tbody>
+    <tr><td><strong>L0 硬编码</strong></td><td>改源码</td><td>Python，重新发版</td><td class="no">内部功能在这层（record_done 等函数本体）</td></tr>
+    <tr><td><strong>L1 配置驱动</strong></td><td>改配置</td><td>.env / config 文件</td><td class="no">.env 换模型、换 Key 在这层</td></tr>
+    <tr><td><strong>L2 协议挂载</strong></td><td>实现标准协议</td><td>一个独立程序（任意语言）</td><td class="yes">mcp_server.py——但它是对外的插头，不是对内的插座</td></tr>
+    <tr><td><strong>L3 声明式插件</strong></td><td>放文件</td><td>Markdown + 清单，宿主加载</td><td class="no">我们要为 TRAE 造的就是这层</td></tr>
+  </tbody>
+</table>
+
+<div class="callout aha">
+  <span class="tag">AHA 时刻</span>
+  换个视角就通了：<strong>从 TRAE 看，你的 dailyreport 已经是一个 L2 插件</strong>——mcp.json 里一行 <code>"command": ".../dailyreport-mcp"</code>，TRAE 启动它、发现 12 个工具、按 MCP 协议调用。你早就在写「插件的代码」了，只是没人告诉你这叫插件。而 dailyreport <strong>对内</strong>只有 L0/L1——它自己是宿主，却没有插座。
+</div>
+
+<h2>三、插件开发到底写什么代码</h2>
+<p>为 Claude Code / TRAE 这类宿主写插件，产物只有三种，<strong>只有一种含真代码</strong>：</p>
+
+<h3>① SKILL.md —— 纯文本，零代码</h3>
+<p>YAML frontmatter 是给宿主的「插件契约」（何时加载我），正文是给模型的「操作手册」。为 dailyreport 写的第一个真插件长这样：</p>
+
+<pre><code>---
+name: dailyreport
+description: 记录工作进展与查询/生成日报。Use when 用户提到「完成了某事」「记个待办」
+  「生成日报」「今天做了什么」，或对话临近结束需要总结当日工作。
+---
+## Instructions
+
+1. 先判意图，再选工具（MCP 服务器 ai-dailyreport）：
+   - 完成 → mcp__ai-dailyreport__record_done
+   - 待办 → mcp__ai-dailyreport__record_plan
+   - 日报 → mcp__ai-dailyreport__generate_report
+   - 查询 → mcp__ai-dailyreport__today_status / search_entries
+2. 记录类调用保留用户原话，不要替用户改写事实。
+3. 调用成功后，用一句话确认并附条目时间戳。
+4. 禁止：未调用工具就声称「已记录」。</code></pre>
+
+<p>注意 <code>description</code> 的写法：前半句说「我能干什么」，<code>Use when</code> 说「什么时候想起我」。宿主只把这一段常驻上下文（第 1 课的渐进式披露），所以它的质量直接决定触发准确率。</p>
+
+<h3>② Hook 脚本 —— 唯一的「真代码」</h3>
+<p>Hooks 是宿主在固定生命周期事件（会话开始、工具调用前、提交前…）执行的 shell 命令。比如「每次新会话自动注入今日概况」：</p>
+
+<pre><code><span class="cm">#!/bin/bash</span>
+<span class="cm"># session_start.sh — 复用 dailyreport 现成的 storage 模块，零 LLM 调用</span>
+cd /Users/savior/Documents/project/dailyreport
+.venv/bin/python - &lt;&lt;'PY'
+from datetime import datetime
+from src import storage
+
+today = datetime.now().strftime("%Y-%m-%d")
+entries = storage.load_entries(today)
+done = sum(1 for e in entries if e.get("status") == "done")
+todo = sum(1 for e in entries if e.get("status") == "todo")
+print(f"【dailyreport】今日已完成 {done} 条，待办 {todo} 条。")
+PY</code></pre>
+
+<p>再在插件清单里把它挂到事件上：</p>
+
+<pre><code>{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [ { "type": "command",
+                     "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session_start.sh" } ] }
+    ]
+  }
+}</code></pre>
+
+<h3>③ plugin.json —— 插件清单（身份证）</h3>
+
+<pre><code>{
+  "name": "dailyreport-harness",
+  "version": "0.1.0",
+  "description": "让 AI 编程工具聪明地使用 ai-dailyreport：技能触发 + 会话钩子",
+  "author": { "name": "savior" }
+}</code></pre>
+
+<p>最终目录就是备忘单里那个结构：<code>plugin.json</code> + <code>skills/</code> + <code>hooks/</code>。第 3、4 课会带你把这三个文件真的造出来并验证触发。</p>
+
+<div class="callout warn">
+  <span class="tag">易混淆</span>
+  <strong>Skill 不是函数，Hook 不是回调库。</strong>Skill 是自然语言写的「条件知识」（宿主用 LLM 决定何时加载）；Hook 是确定性代码（事件到点就执行，不过 LLM）。要「聪明地判断该不该做」→ Skill；要「每次必定做」→ Hook。本课程主线里：自动记录用 Skill（需要判断意图），自动注入概况用 Hook（每次都要）。
+</div>
+
+<h2>四、方向 B：给 dailyreport 自己装插座（可选）</h2>
+<p>如果你的目标是让 dailyreport <strong>作为宿主</strong>接受第三方扩展（比如别人给它加一个「周报生成器」插件），那就是经典的 Python 插件模式——发现、契约、加载三件套，骨架大约 30 行：</p>
+
+<pre><code><span class="cm"># plugins/base.py —— 契约：所有插件实现这个协议</span>
+class ReportPlugin(Protocol):
+    name: str
+    def render(self, entries: list[dict]) -&gt; str: ...
+
+<span class="cm"># plugins/loader.py —— 发现 + 加载：扫目录、import、注册</span>
+def load_plugins(dir_path: Path) -&gt; dict[str, ReportPlugin]:
+    registry = {}
+    for py in dir_path.glob("*.py"):
+        if py.name.startswith("_"):
+            continue
+        module = importlib.import_module(f"plugins.{py.stem}")
+        for _, obj in inspect.getmembers(module, inspect.isclass):
+            if issubclass(obj, ReportPlugin) and obj is not ReportPlugin:
+                registry[obj.name] = obj()
+    return registry</code></pre>
+
+<p>但按 <a href="../MISSION.md">MISSION</a>，当前主线是方向 A（TRAE 集成）——dailyreport 保持 L2 插件身份即可，给它自己装插座是「架构升级」方向的事，先记下不展开。</p>
+
+<h2>五、检测一下</h2>
+<div data-quiz="q1"></div>
+<div data-quiz="q2"></div>
+<div data-quiz="q3"></div>
+<div class="quiz-summary"></div>
+
+<h2>六、小结与下一步</h2>
+<p>本课三个可入术语表的候选：<strong>扩展点</strong>（宿主预留的、按契约接入的位置）、<strong>可插拔阶梯</strong>（L0 硬编码 → L1 配置 → L2 协议 → L3 声明式）、<strong>插件清单</strong>（宿主识别插件的契约文件）。掌握后我会录入 <a href="../GLOSSARY.md">术语表</a>。</p>
+
+<div class="callout next">
+  <span class="tag">下一课预告</span>
+  第 3 课「动手」：真的把 dailyreport-harness 插件写出来——SKILL.md 放对位置、验证 description 触发是否命中、在 TRAE 里实测 record_done 被正确调用。做完你就有了第一个可分发的 harness 插件。
+</div>
+
+<h3>推荐阅读（一手资料）</h3>
+<ul>
+  <li><strong>精读</strong>：<a href="https://docs.anthropic.com/en/docs/claude-code/skills">官方 Skills 文档</a>——重点看 frontmatter reference 和三级存放位置表</li>
+  <li><strong>对照</strong>：<a href="https://github.com/revfactory/harness">revfactory/harness</a> 的 <code>skills/harness/SKILL.md</code>——看一个 4.5k star 的元技能正文怎么组织</li>
+</ul>
+
+<footer>
+  卡住了？直接问我，例如：「TRAE 里 hook 的生命周期事件和 Claude Code 一致吗？」 ·
+  <a href="../reference/harness-cheatsheet.html">备忘单</a> · <a href="../RESOURCES.md">资源库</a>
+</footer>
+
+</main>
+<script src="../assets/quiz.js"></script>
+<script>
+renderQuizzes({
+  q1: {
+    q: "「dailyreport 五大件已有四件」与「dailyreport 可以插拔插件」，这两句话的关系是？",
+    options: [
+      { t: "两回事，各自独立", ok: true },
+      { t: "前者推出后者", why: "反例：Chrome 组件完备才有插件系统？不——很多组件完备的软件没有任何扩展点。" },
+      { t: "两句话互相矛盾", why: "不矛盾：一个系统可以组件完备但封闭（不可扩展），也可以组件简陋却留了扩展点。" },
+      { t: "后者推出前者", why: "有扩展点不等于组件完备——插座装好了，上面也可以什么都没插。" }
+    ],
+    explain: "组件完备性（能干什么）与可插拔性（能不能被扩展）是正交的两个轴。dailyreport 前者四分、后者归零——这正是「你造了 harness 但还没造插件系统」的含义。"
+  },
+  q2: {
+    q: "Claude Code 插件的三类产物（SKILL.md / hook 脚本 / plugin.json）中，哪些包含真正的可执行代码？",
+    options: [
+      { t: "仅 hook 脚本一种", ok: true },
+      { t: "仅 plugin.json 一种", why: "清单是纯 JSON 声明，宿主读它但不执行它。" },
+      { t: "SKILL.md 和 hook", why: "SKILL.md 是给 LLM 读的自然语言，不含可执行代码（除非用 !`cmd` 注入，那也是宿主代跑）。" },
+      { t: "三种全部都是", why: "只有 hook 是确定性执行的代码；另两个分别是「契约知识」和「身份证」。" }
+    ],
+    explain: "Hook 脚本是唯一由宿主确定执行的代码（所以权限最敏感）；SKILL.md 是自然语言写的条件知识，plugin.json 是声明式清单。要「聪明判断」用 Skill，要「必定执行」用 Hook。"
+  },
+  q3: {
+    q: "从 TRAE 的视角看，dailyreport 的 mcp_server.py 处于可插拔阶梯的哪一层？",
+    options: [
+      { t: "L0 硬编码层", why: "那是 dailyreport 内部功能（工具函数本体）所在的层。" },
+      { t: "L2 协议挂载层", ok: true },
+      { t: "L1 配置驱动层", why: ".env 换模型换 Key 才是 L1；mcp_server.py 是程序不是配置。" },
+      { t: "L3 声明式插件层", why: "L3 是放 Markdown 文件宿主自动加载；MCP 需要跑一个实现了协议的独立程序。" }
+    ],
+    explain: "它实现了 MCP 协议、被 TRAE 经 mcp.json 挂载——教科书式的 L2。妙处在于：dailyreport 对外是 L2 插件，对内却只有 L0/L1，没有自己的插座。"
+  }
+});
+</script>
+</body>
+</html>

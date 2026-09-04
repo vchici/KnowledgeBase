@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harness 备忘单（速查）</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+  .card { border: 1px solid var(--line); border-radius: 8px; padding: 0.8rem 1rem; background: #fff; }
+  .card h3 { margin: 0.2rem 0 0.4rem; font-size: 0.95rem; }
+  .card p, .card li { font-size: 0.88rem; line-height: 1.7; }
+</style>
+</head>
+<body>
+<main>
+
+<div class="lesson-kicker">REFERENCE · 速查（可打印）</div>
+<h1>Harness 备忘单</h1>
+<div class="lesson-meta">课程：<a href="../lessons/0001-agent-harness-concept.html">第 1 课 · Agent Harness 概念</a> · 本页随课程更新</div>
+
+<h2>核心公式与五大件</h2>
+<div class="formula">Coding Agent<span class="op">=</span>AI Model<span class="op">+</span>Harness</div>
+<div class="two-col">
+  <div class="card"><h3>工具分发</h3><p>模型的调用意图 → 注册表匹配 → 参数校验 → 执行 → 结果回填。你的 dailyreport 以 12 个 MCP 工具挂在此层。</p></div>
+  <div class="card"><h3>权限门控</h3><p>deny → ask → allow 三级评估链，deny 永远胜出。dailyreport 目前缺失的一件。</p></div>
+  <div class="card"><h3>上下文管理</h3><p>决定什么进窗口：检索 top-k、历史截断、渐进式披露。dailyreport 的 8 轮上限与双路加权检索属于此件。</p></div>
+  <div class="card"><h3>记忆</h3><p>跨会话持久化（AGENTS.md / CLAUDE.md / data/*.json）。dailyreport 的 storage.py 已覆盖。</p></div>
+  <div class="card"><h3>子任务编排</h3><p>意图分发、子代理并行、结果汇总。dailyreport 的 auto_dispatch + text_parser 已覆盖。</p></div>
+  <div class="card"><h3>Harness Effect</h3><p>同模型、不同 harness 的表现差：Claude Opus 在 Cursor 93 vs Claude Code 77（Terminal-Bench 2.0）。</p></div>
+</div>
+
+<h2>插件的目录结构</h2>
+<pre><code>my-plugin/
+  .claude-plugin/
+    plugin.json        <span class="cm"># 插件清单（至少含 name），让技能升级为插件</span>
+  skills/
+    &lt;skill-name&gt;/
+      SKILL.md         <span class="cm"># 技能定义：YAML frontmatter + Markdown 正文</span>
+      references/       <span class="cm"># 按需加载的详细资料（渐进式披露第三层）</span>
+  agents/               <span class="cm"># 子代理定义（角色、I/O 协议）</span>
+  hooks/                <span class="cm"># 生命周期钩子脚本</span></code></pre>
+
+<h2>SKILL.md 最小模板（官方规范）</h2>
+<pre><code>---
+description: 一句话说明做什么 + Use when 触发条件。
+  这是唯一常驻上下文的部分，要写「什么时候用我」。
+---
+## Instructions
+正文：只在技能被触发时才加载。
+可以用 !`命令` 语法注入动态上下文（执行命令、以输出替换该行）。</code></pre>
+
+<h2>技能存放位置（三级）</h2>
+<table>
+  <thead><tr><th>级别</th><th>路径</th><th>作用范围</th></tr></thead>
+  <tbody>
+    <tr><td>个人</td><td><code>~/.claude/skills/&lt;name&gt;/SKILL.md</code></td><td>你的所有项目</td></tr>
+    <tr><td>项目</td><td><code>.claude/skills/&lt;name&gt;/SKILL.md</code></td><td>仅当前项目</td></tr>
+    <tr><td>插件</td><td><code>&lt;plugin&gt;/skills/&lt;name&gt;/SKILL.md</code></td><td>启用插件处（带命名空间 name:skill）</td></tr>
+  </tbody>
+</table>
+
+<h2>可插拔阶梯（第 2 课）</h2>
+<table>
+  <thead><tr><th>层</th><th>扩展方式</th><th>扩展者写什么</th></tr></thead>
+  <tbody>
+    <tr><td>L0 硬编码</td><td>改源码</td><td>Python，重新发版</td></tr>
+    <tr><td>L1 配置驱动</td><td>改配置</td><td>.env / config</td></tr>
+    <tr><td>L2 协议挂载</td><td>实现标准协议</td><td>独立程序（MCP server）</td></tr>
+    <tr><td>L3 声明式插件</td><td>放文件</td><td>Markdown + 清单</td></tr>
+  </tbody>
+</table>
+<p style="font-size:0.88rem">组件完备性（能干活）≠ 可插拔性（能被扩展）。Skill=条件知识（LLM 判断触发）；Hook=确定性代码（事件必执行）；plugin.json=身份证。</p>
+
+<h2>revfactory/harness 六种团队架构（选型用）</h2>
+<table>
+  <thead><tr><th>模式</th><th>一句话</th><th>典型场景</th></tr></thead>
+  <tbody>
+    <tr><td>Pipeline 流水线</td><td>A 的输出是 B 的输入</td><td>设计→开发→测试→部署</td></tr>
+    <tr><td>Fan-out / Fan-in</td><td>并行独立处理，结果聚合</td><td>多维度代码审查</td></tr>
+    <tr><td>Expert Pool 专家池</td><td>按上下文动态选一个专家</td><td>多能力、非同时激活</td></tr>
+    <tr><td>Producer-Reviewer</td><td>生成后自动触发审核闭环</td><td>内容生产+质量把关</td></tr>
+    <tr><td>Supervisor 监督者</td><td>中央协调、动态分发</td><td>多环节创作统筹</td></tr>
+    <tr><td>Hierarchical 层级委派</td><td>自顶向下递归拆解</td><td>大型工程</td></tr>
+  </tbody>
+</table>
+
+<h2>dailyreport × Harness 扩展路线（课程主线）</h2>
+<table>
+  <thead><tr><th>步骤</th><th>产出</th><th>补上的部件</th></tr></thead>
+  <tbody>
+    <tr><td>① 概念（本课程第 1 课）</td><td>心智模型</td><td>—</td></tr>
+    <tr><td>② 插件解剖（第 2 课）</td><td>看得懂 SKILL.md / plugin.json / hooks</td><td>—</td></tr>
+    <tr><td>③ 第一个 skill（第 3 课）</td><td>教 TRAE「何时调 record_done / record_plan」</td><td>技能（渐进式披露）</td></tr>
+    <tr><td>④ hooks 自动化（第 4 课）</td><td>会话开始自动 today_status、收尾提醒记录</td><td>权限/自动化门控</td></tr>
+    <tr><td>⑤ 团队架构选型（第 5 课）</td><td>判断 dailyreport 适合哪种模式</td><td>编排升级</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  来源均见 <a href="../RESOURCES.md">RESOURCES.md</a>（官方文档与一手仓库，已核实）。
+</footer>
+
+</main>
+</body>
+</html>
