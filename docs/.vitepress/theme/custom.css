@@ -3,12 +3,48 @@
 :root {
   /* 让整个页面布局占满屏幕宽度，移除默认 1440px 的最大宽度限制 */
   --vp-layout-max-width: 100%;
+
+  /* 品牌主色：靛紫渐变系 */
+  --vp-c-brand-1: #6d6af0;
+  --vp-c-brand-2: #5d5ae6;
+  --vp-c-brand-3: #4f4cd9;
+  --vp-c-brand-soft: rgba(109, 106, 240, 0.14);
+
+  /* 首页 Hero 渐变标题与光晕 */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #6d6af0 20%, #b06af0 60%, #f06a9b);
+}
+
+.dark {
+  --vp-c-brand-1: #9d9bff;
+  --vp-c-brand-2: #8b88ff;
+  --vp-c-brand-3: #7a76f5;
+  --vp-c-brand-soft: rgba(157, 155, 255, 0.16);
 }
 
 /* 移除正文内容区的行宽限制（VitePress 默认限制约 688px），让文本占满可用空间 */
 .VPDoc.has-aside .content-container,
 .VPDoc:not(.has-sidebar) .content {
   max-width: none !important;
+}
+
+/* ---------- 代码块增强 ---------- */
+/* 描边 + 圆角，亮暗主题下都比默认的纯色块更有层次 */
+.vp-doc div[class*='language-'] {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+}
+/* 行号颜色弱化（lineNumbers: true 时 VitePress 会插入 .line-numbers） */
+.vp-doc div[class*='language-'] .line-numbers-wrapper {
+  color: var(--vp-c-text-3);
+  opacity: 0.55;
+}
+
+/* 标题锚点悬停时用品牌色 */
+.vp-doc h1:hover .header-anchor,
+.vp-doc h2:hover .header-anchor,
+.vp-doc h3:hover .header-anchor {
+  color: var(--vp-c-brand-1);
 }
 
 .hl-purple {

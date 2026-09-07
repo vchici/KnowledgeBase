@@ -71,6 +71,8 @@ node_modules/
 # VitePress build output & cache
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+# 知识图谱数据（config.js 启动/构建时自动生成）
+docs/public/graph.json
 
 # 配置（本地保留，不入库）
 VPN/
