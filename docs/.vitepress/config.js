@@ -110,7 +110,7 @@ function buildSidebar(dir) {
 
 // ---------- 知识图谱数据生成 ----------
 // 元页面：导航用途的页面，不进侧边栏、不进图谱
-const META_PAGES = new Set(['index.md', 'catalog.md', 'graph.md'])
+const META_PAGES = new Set(['index.md', 'catalog.md', 'graph.md', 'README.md'])
 
 function collectNotes(dir) {
   const entries = readdirSync(dir).sort((a, b) => a.localeCompare(b, 'zh-CN'))

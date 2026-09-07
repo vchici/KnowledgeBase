@@ -31,18 +31,17 @@ export function iconOf(group) {
   return GROUP_ICONS[group] || '📁'
 }
 
-// 递归收集分组下的文章链接（按页面去重，忽略标题锚点）
+// 递归收集分组下的文章（条目 = 文章名，即 .md 前的文本；跳过文章下的标题锚点子项）
 export function collectPages(items, out = []) {
   const seen = new Set(out.map((p) => p.link))
   for (const item of items || []) {
-    if (item.items) {
-      collectPages(item.items, out)
-    } else if (item.link) {
-      const page = item.link.split('#')[0]
-      if (!seen.has(page)) {
-        seen.add(page)
-        out.push({ text: item.text, link: page })
+    if (item.link && !item.link.includes('#')) {
+      if (!seen.has(item.link)) {
+        seen.add(item.link)
+        out.push({ text: item.text, link: item.link })
       }
+    } else if (!item.link && item.items) {
+      collectPages(item.items, out) // 分组目录节点
     }
   }
   return out
