@@ -160,15 +160,12 @@ function stripFences(content) {
   return out.join('\n')
 }
 
-// 解析笔记互链（markdown 相对链接 + Obsidian 双链 [[...]]），构建节点与边
+// 解析笔记互链（markdown 相对链接），构建节点与边
 function buildGraph() {
   const notes = collectNotes(docsDir)
   const byId = new Map(notes.map((n) => [n.id, n]))
-  const byName = new Map() // 笔记名 → id（同名取第一个，与 Obsidian 短名解析近似）
-  for (const n of notes) if (!byName.has(n.label)) byName.set(n.label, n.id)
 
   const linksRe = /\[[^\]]*\]\(([^)\s]+)\)/g
-  const wikiRe = /\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]/g
   const edgeSet = new Set()
   for (const n of notes) {
     const body = stripFences(readFileSync(n.abs, 'utf-8'))
@@ -180,15 +177,6 @@ function buildGraph() {
       if (!raw.toLowerCase().endsWith('.md')) continue
       const abs = join(dirname(n.abs), raw.split('#')[0])
       targets.push(relative(docsDir, abs).replace(/\\/g, '/').replace(/\.md$/, ''))
-    }
-    for (const m of body.matchAll(wikiRe)) {
-      const t = m[1].trim()
-      if (byId.has(t)) {
-        targets.push(t)
-        continue
-      }
-      const id = byName.get(basename(t.replace(/\.md$/, '')))
-      if (id) targets.push(id)
     }
     for (const target of targets) {
       if (target === n.id || !byId.has(target)) continue
