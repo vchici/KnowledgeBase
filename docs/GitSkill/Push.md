@@ -58,6 +58,18 @@ Git 会自动在后台帮你补全后面所有的仓库名和分支名。
 > 
 > 实际上推荐本地分支和远程分支同名，所以这里设置--local表示当前仓库比较特殊
 
+# 删除远程分支
+
+对照开头的完整公式：push 的源引用是「空」时，目的分支就会被删除。
+
+$$\text{git push origin} \quad \underbrace{\text{（空）}}_{\text{源引用 (Source)}} : \underbrace{\text{refs/heads/branch}}_{\text{目的引用 (Destination)}}$$
+
+```Bash
+git push origin --delete <远端分支>   # 简写：git push origin :<远端分支>
+```
+
+删除**本地**分支是另一套命令，见[删除分支](./Switch.md#删除分支)
+
 # push失败原因
 
 ## 身份不对
