@@ -1,60 +1,53 @@
 # 阶段
 
-随着竞争线程数量的提升:
+线程竞争越激烈,锁就越"重":
 
-偏向锁(1) -- 轻量级锁(>1,但无冲突) -- 重量级锁(存在冲突,自旋超过一定次数)
+只有 1 个线程 → 偏向锁
+多个线程但没冲突 → 轻量级锁
+有冲突、自旋到一定次数 → 重量级锁
 
 # 消耗
 
 ## 偏向锁阶段
 
-锁对象处于从未加锁状态,线程将自己ID写入锁对象的 `Mark Word` 中
+锁从没被加过锁。第一个线程把自己的 ID 写进锁对象的 `Mark Word`。
 
-线程再次进入时,只需对比线程ID是否是自己,是则直接放行无消耗
+之后同一个线程再来,只要比对自己的 ID 是不是它,是就直接进,几乎零开销。
 
 ## 轻量级锁阶段
 
-存在CPU自旋消耗:
+有 CPU 自旋的消耗。
 
-未抢到锁的线程,CAS自旋, `while(true)` 死循环,占用的CPU资源取决于持有锁的线程执行的时间
+没抢到锁的线程不会立刻挂起,而是用 CAS 自旋 —— 相当于 `while(true)` 空转死等。持锁线程跑多久,它就要空转多久,白白烧 CPU。
 
 ## 重量级锁阶段
 
-用户态到内核态的切换:
+有用户态到内核态的切换开销。
 
-线程挂起时,操作系统要保存当前线程的状态,再把CPU让给别的线程
+线程抢不到锁就挂起:操作系统要保存这个线程的状态,把 CPU 让给别人。
 
-锁释放时,操作系统又要经历一次反向切换唤醒它
+锁释放时,操作系统再反向切换一次,把它唤醒。
 
 # 锁对象
 
-每一个Java对象,对象头(Mark Word)中有一个插槽
+每一个 Java 对象,对象头(Mark Word)里都有一个插槽,用来记“当前谁持锁”。
 
-执行到 `synchronized(lock)` 时,会看 `lock` 对象的对象头,
+执行到 `synchronized(lock)` 时,先看 `lock` 的对象头:
 
-如果里面为空,写入线程ID,
+- 插槽为空 → 写入当前线程 ID,拿到锁。
+- 插槽里是别人的 ID → 当前线程被抓起来,扔进等待队列(EntryList)。
 
-当其他线程执行到此处时,看到 `lock` 对象的对象头里是别人的名字,
-
-`lock` 对象就会把它抓住,扔进等待队列(EntryList)
-
-直到名字被擦除,`lock` 才会从队列里“唤醒”其他线程抢门票
+等持有者释放锁、把名字擦掉,`lock` 再从队列里“唤醒”其他线程,大家重新抢门票。
 
 ## 非公平机制
 
-这里的“唤醒”后的竞争,是非公平的
+锁释放后“唤醒”的竞争是非公平的。
 
-从内核态往用户态切换的线程,和处于运行态的新到的线程一同争抢,
+被唤醒的老线程,还得从内核态切回用户态;而新到的线程本来就处于运行态,两者一起抢锁。
 
-大概率新到线程通过一个CAS操作,将对象头里改成自己的名字,
+结果大概率是新到的线程一个 CAS 就把对象头改成自己的名字——因为老线程还在切换状态,没来得及执行 CAS。
 
-因为切换状态的线程还没来得及执行CAS操作
-
-好处:
-
-挂起/唤醒线程需要上万个CPU周期,如果搞公平锁,
-
-要等老线程从内核态到运行态再到执行,同时新到的线程要挂起
+为什么这样反而更好:挂起/唤醒一次线程要花上万个 CPU 周期。如果搞公平锁,就得等老线程从内核态切回用户态、真正跑起来,而新到的线程只能先挂起,白白浪费时间。
 
 ## 可重入锁
 
@@ -95,42 +88,47 @@ lock.unlock();  // 第2次释放,state 从 2 → 1
 lock.unlock();  // 第3次释放,state 从 1 → 0,锁真正释放
 ```
 
-AQS 通过 `state` 计数实现可重入: 每次 lock 让 state+1, 每次 unlock 让 state-1, state 归零才真正释放锁
+[AQS](#java-锁的两套底层体系) 通过 `state` 计数实现可重入: 每次 lock 让 state+1, 每次 unlock 让 state-1, state 归零才真正释放锁
 
 ### synchronized 和 ReentrantLock 底层实现对比
 
-**synchronized(ObjectMonitor)**: Monitor 内部维护 `_recursions` 计数器
+**synchronized(ObjectMonitor)**:Monitor 里用 `_recursions` 计数、`_owner` 记持有者。
 
 ```
-线程进入 synchronized(lock):
-  如果 Monitor._owner == 自己:
-    _recursions++     ← 重入,计数器+1
-  否则:
-    抢锁,_owner = 自己,_recursions = 1
+进入 synchronized(lock):
+  如果 _owner == 当前线程:   // 锁已经是自己的
+    _recursions++           // 重入,计数 +1
+  否则:                     // 锁还没人拿
+    抢到锁,_owner = 自己,_recursions = 1
 
-线程退出 synchronized(lock):
+退出 synchronized(lock):
   _recursions--
-  如果 _recursions == 0:
-    释放锁,_owner = null
-  否则:
-    还没完全退出,继续持有
+  如果 _recursions == 0:    // 重入层数全部退完
+    _owner = null           // 才真正释放锁
+  否则:                     // 还套着外层
+    继续持有
 ```
 
-**ReentrantLock(AQS)**:用 `state` 字段充当计数器
+**ReentrantLock(AQS)**:用 `state` 计数、`exclusiveOwnerThread` 记持有者。
 
 ```
 lock.lock():
-  如果当前线程 == exclusiveOwnerThread:
-    state++           ← 重入,state+1
-  否则:
-    CAS 尝试把 state 从 0 改成 1
+  如果 exclusiveOwnerThread == 当前线程:  // 锁已经是自己的
+    state++                               // 重入,直接 +1,不需要 CAS
+  否则:                                   // 锁还没人拿,可能有别的线程同时在抢
+    CAS 把 state 从 0 改成 1,持有者记为自己 // 必须用 CAS 保证只有一个线程能抢成功
 
 lock.unlock():
   state--
-  如果 state == 0:
-    exclusiveOwnerThread = null  ← 锁真正释放
-    唤醒后继线程
+  如果 state == 0:                        // 重入层数全部退完
+    exclusiveOwnerThread = null           // 才真正释放锁
+    唤醒队列里的后继线程
 ```
+
+> 为什么重入时直接 `state++`,第一次抢锁却要用 CAS?
+>
+> - **重入**:持有者就是当前线程自己,别的线程不可能同时改这个 state,普通自增就够了。
+> - **第一次抢**:此刻可能有多个线程同时发现 state == 0,都想把它改成 1。普通的"读—判断—写"在并发下会让多个线程都以为自己抢到了;CAS 把"判断 state 是不是 0 + 改成 1"合成一个不可分割的原子操作,只有一个线程能成功,其他线程抢锁失败,进入队列等待。
 
 ### 什么时候需要可重入锁
 
@@ -177,34 +175,42 @@ new Child().doSomething();
 
 保证整个转账过程的**原子性** 
 
-如果把 ReentrantLock 换成一个不可重入的锁:
+如果把 ReentrantLock 换成 `StampedLock`(JDK 里真实存在的不可重入锁):
 
 ```java
-// 假设有一个不可重入的锁
-NonReentrantLock lock = new NonReentrantLock();
+StampedLock lock = new StampedLock();
 
-lock.lock();
+long stamp = lock.writeLock();   // 第一次拿到写锁
 try {
-    lock.lock();    // 死锁！锁被自己持有,又去抢同一把锁,永远等不到
-    try {
-        // 永远到不了这里
-    } finally {
-        lock.unlock();
-    }
+    lock.writeLock();            // 死锁！自己持有写锁,又去抢同一把写锁,永远等不到
+    // 永远到不了这里
 } finally {
-    lock.unlock();
+    lock.unlockWrite(stamp);     // 只有这一层能释放
 }
 ```
 
-**锁认的是线程,不是调用次数**, 同一个线程可以反复进入,只要最终退出次数等于进入次数,锁就释放
+这就是可重入锁的本质:锁只认**是谁在持有**(线程),不认**加了几次**(次数)。所以同一个线程可以反复进入、反复加锁,不会自己把自己卡死;唯一的要求是——进几次就得退几次,进出次数相等,锁才算真正释放。
+
+**不可重入锁正好相反**:锁里没有计数,也不看是谁持有,只记"被占没被占"。一旦被占,谁来都拦——哪怕来抢的就是持锁线程自己。所以同一个线程第二次加锁,就是自己等自己 → 死锁,这正是上面 StampedLock 卡死的原因。
 
 ## Object.wait() / Object.notify()
+
+synchronized 只能管"排队":一次只放一个线程进临界区。
+
+但有些场景光排队没用,还得"等条件"。比如生产者-消费者:缓冲区满了,生产者就算抢到锁也没活干;它要是抱着锁干等,消费者拿不到锁进不来,数据永远取不走,整个流程就卡死了。
+
+wait/notify 就是用在这种时候:
+
+- 条件不满足 → 主动释放锁去睡觉,把锁让给别人
+- 条件被别人满足了 → 叫醒睡觉的线程,重新排队抢锁
+
+一句话:**synchronized 管互斥,wait/notify 管协作**(生产者-消费者、交替打印都是典型场景)。
 
 通过锁对象(Monitor)管理线程的生存状态
 
 ### wait()
 
-释放锁, 把 Monitor 的`_owner` 擦除,让出通行证
+释放锁, 把 Monitor 的 `_owner` 擦除,让出通行证
 
 将线程扔进 Monitor 的 `_WaitSet` (等待池) 里面
 
@@ -220,70 +226,49 @@ try {
 
 ```java
 public class AlterPrint {
-    private int flag = 1;
-    private final Object lock = new Object();
-    public void printA() {
+    private int flag = 1;                      // 轮到谁: 1→a, 2→b, 3→c
+    private final Object lock = new Object();  // 三个线程共用一把锁
+
+    // 三个线程跑同一个方法,只是参数不同
+    public void print(String word, int myTurn, int nextTurn) {
         synchronized (lock) {
             while (true) {
-                while (flag != 1) {
-                    try { lock.wait(); }    
+                while (flag != myTurn) {       // 还没轮到自己
+                    try { lock.wait(); }       // 放锁睡觉,把机会让给别人
                     catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
-                System.out.println("a");
-                flag = 2;
-                lock.notifyAll();
+                System.out.println(word);      // 轮到自己,打印
+                flag = nextTurn;               // 把回合传给下一个人
+                lock.notifyAll();              // 叫醒所有睡觉的线程
             }
         }
     }
-    public void printB() {
-        synchronized (lock) {
-            while (true) {
-                while (flag != 2) {
-                    try { lock.wait(); }    
-                    catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-                System.out.println("b");
-                flag = 3;
-                lock.notifyAll();
-            }
-        }
-    }
-    public void printC() {
-        synchronized (lock) {
-            while (true) {
-                while (flag != 3) {
-                    try { lock.wait(); }    
-                    catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-                System.out.println("c");
-                flag = 1;
-                lock.notifyAll();
-            }
-        }
-    }
+
     public static void main(String[] args) {
         AlterPrint p = new AlterPrint();
-        Thread a = new Thread(() -> {
-            p.printA();
-        });
-        Thread b = new Thread(() -> {
-            p.printB();
-        });
-        Thread c = new Thread(() -> {
-            p.printC();
-        });
-        a.start();
-        b.start();
-        c.start();
+        new Thread(() -> p.print("a", 1, 2)).start();
+        new Thread(() -> p.print("b", 2, 3)).start();
+        new Thread(() -> p.print("c", 3, 1)).start();
     }
 }
 ```
+
+整个例子就三样东西:
+
+- **一把锁 `lock`**: 保证同一时刻只有一个线程在动
+- **一个 `flag`**: 记录现在轮到谁
+- **wait/notifyAll**: 没轮到的睡觉,轮到的干活,干完传棒
+
+一轮的流程: 抢到锁 → flag 不是自己 → `wait()` 放锁睡觉 → 轮到自己的线程打印、把 flag 传给下一个、`notifyAll()` → 所有人被叫醒,只有 flag 对的那个能通过 while 检查,其余看一眼条件不对,回去接着睡。
+
+运行效果: a b c a b c ... 交替打印。
+
+两个容易忽略的细节(正是这个例子想教的):
+
+- **用 `notifyAll` 不用 `notify`**: `notify` 只随机叫醒一个,万一把 flag 不对的线程叫醒,真正该干活的还在睡,流程就永远卡住;`notifyAll` 全叫醒,不对的人自己会回去睡,不会出错
+- **用 `while` 不用 `if`**: 线程醒来时 flag 可能已经被别人改了(还可能被虚假唤醒),必须重新检查条件,不满足就接着睡
 
 ## Condition
 
@@ -298,49 +283,43 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-// 1. 你的 BoundedBuffer 类(稍作修改,让 take 方法返回 Object)
 class BoundedBuffer {
     private final Lock lock = new ReentrantLock();
-    private final Condition notFull  = lock.newCondition(); 
-    private final Condition notEmpty = lock.newCondition(); 
+    private final Condition notFull  = lock.newCondition();  // 房间1: 满 → 生产者在这睡
+    private final Condition notEmpty = lock.newCondition();  // 房间2: 空 → 消费者在这睡
 
-    // 为了方便测试看效果,把容量改小一点(比如 3)
-    private final Object[] items = new Object[3]; 
-    private int putptr, takeptr, count;
+    private final Object[] items = new Object[3];  // 容量 3,方便看"满"的效果
+    private int putptr, takeptr, count;            // 写指针、读指针、当前库存
 
     public void put(Object x) throws InterruptedException {
-        lock.lock(); 
+        lock.lock();
         try {
-            while (count == items.length) {
-                System.out.println(Thread.currentThread().getName() + " [Put] 发现缓冲区满了 ❌,进入 notFull 房间睡觉...");
-                notFull.await(); 
+            while (count == items.length) {        // 满了,没地方放
+                System.out.println(Thread.currentThread().getName() + " 满了,去 notFull 房间睡觉");
+                notFull.await();                   // 放锁,进 notFull 房间睡
             }
-            items[putptr] = x;
+            items[putptr] = x;                     // 放入数据,写指针环形前进
             if (++putptr == items.length) putptr = 0;
             ++count;
-            
-            System.out.println(Thread.currentThread().getName() + " 成功放进数据: [" + x + "], 当前库存: " + count);
-            
-            notEmpty.signal(); 
+            System.out.println(Thread.currentThread().getName() + " 放入 [" + x + "],库存 " + count);
+            notEmpty.signal();                     // 放好了,叫醒 notEmpty 房间的消费者
         } finally {
-            lock.unlock(); 
+            lock.unlock();                         // 不管哪条路出来,都放锁
         }
     }
 
-    public Object take() throws InterruptedException { // 修改返回值类型为 Object
+    public Object take() throws InterruptedException {
         lock.lock();
         try {
-            while (count == 0) {
-                System.out.println(Thread.currentThread().getName() + " [Take] 发现缓冲区空了 ❌,进入 notEmpty 房间睡觉...");
-                notEmpty.await();
+            while (count == 0) {                   // 空了,没东西拿
+                System.out.println(Thread.currentThread().getName() + " 空了,去 notEmpty 房间睡觉");
+                notEmpty.await();                  // 放锁,进 notEmpty 房间睡
             }
-            Object x = items[takeptr];
+            Object x = items[takeptr];             // 取出数据,读指针环形前进
             if (++takeptr == items.length) takeptr = 0;
             --count;
-            
-            System.out.println(Thread.currentThread().getName() + " 成功取出数据: [" + x + "], 剩余库存: " + count);
-            
-            notFull.signal();
+            System.out.println(Thread.currentThread().getName() + " 取出 [" + x + "],库存 " + count);
+            notFull.signal();                      // 拿走了,叫醒 notFull 房间的生产者
             return x;
         } finally {
             lock.unlock();
@@ -348,48 +327,52 @@ class BoundedBuffer {
     }
 }
 
-// 2. 测试主类
 public class BoundedBufferTest {
     public static void main(String[] args) {
-        // 创建一个容量为 3 的有界缓冲区
         BoundedBuffer buffer = new BoundedBuffer();
 
-        // 创建 3 个生产者线程
+        // 3 个生产者,生产快(200ms 一个);2 个消费者,消费慢(800ms 一个)
+        // 供大于求 → 缓冲区被压满 → 生产者成批进 notFull 房间睡觉
         for (int i = 1; i <= 3; i++) {
-            final int producerId = i;
             new Thread(() -> {
-                int itemNumber = 1;
-                while (true) {
-                    try {
-                        // 每一个生产者往里面放自己生产的商品,比如 "商品-1-1"
-                        String data = "商品-" + producerId + "-" + itemNumber++;
-                        buffer.put(data);
-                        // 随机睡一会儿,模拟生产耗时
-                        Thread.sleep((long) (Math.random() * 1000));
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                try {
+                    for (int n = 1; n <= 100; n++) {
+                        buffer.put("商品-" + n);
+                        Thread.sleep(200);
                     }
-                }
+                } catch (InterruptedException e) { e.printStackTrace(); }
             }, "生产者-" + i).start();
         }
 
-        // 创建 2 个消费者线程(故意让消费者比生产者少,或者消费慢一点,更容易触发“满”的场景)
         for (int i = 1; i <= 2; i++) {
             new Thread(() -> {
-                while (true) {
-                    try {
+                try {
+                    for (int n = 1; n <= 150; n++) {
                         buffer.take();
-                        // 故意让消费者睡得久一点,造成供大于求,逼迫缓冲区变满
-                        Thread.sleep((long) (Math.random() * 1500));
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        Thread.sleep(800);
                     }
-                }
+                } catch (InterruptedException e) { e.printStackTrace(); }
             }, "消费者-" + i).start();
         }
     }
 }
 ```
+
+跟 AlterPrint 的"一个池子"不同,这里一把锁配了**两个等待房间**:
+
+- **notFull 房间**: 生产者发现"满了"进去睡
+- **notEmpty 房间**: 消费者发现"空了"进去睡
+
+以生产者为例走一遍流程: 抢到锁 → 发现满了 → `notFull.await()` 放锁进房睡 → 消费者取走一个,调 `notFull.signal()` → 睡着的生产者被搬回抢锁队列尾部 → 重新抢锁、重新检查,不满了就放货。
+
+运行后很快就能看到: 消费慢(800ms)、生产快(200ms),生产者成批"去 notFull 房间睡觉",消费者每取走一个数据就把他们叫醒。
+
+**两个房间才是核心优势**: `notEmpty.signal()` 只叫醒 notEmpty 房间里的人,notFull 房间的生产者不会被无辜吵醒再白跑一趟 —— 这就是"一个池子 vs 多个房间"的差别。
+
+两个和 wait/notify 一模一样的老规矩:
+
+- 判断条件用 `while` 不用 `if`: 醒来后条件可能又被别人改了,必须重新检查
+- `await()/signal()` 必须在持有锁时调用: `await` 内部会先帮你放锁再睡,醒来后还要重新抢锁才能返回
 
 每个Condition对象底层维护一个单向条件队列
 
@@ -416,25 +399,33 @@ Java 并发锁有两套完全独立的底层实现:
          WaitSet           Condition 条件队列
 ```
 
-**体系一:synchronized → ObjectMonitor**
+**体系一：synchronized → ObjectMonitor**
 
-`synchronized` 是 JVM 内置锁,底层由 C++ 实现的 `ObjectMonitor` 支撑本文档前面讲的锁升级(偏向锁→轻量级锁→重量级锁)、`_EntryList`、`_WaitSet`、`_owner` 都属于这一套体系`ObjectMonitor` 的等待队列是 C++ 层面的双向循环链表,与 AQS 无关
+`synchronized` 是 JVM 内置锁，底层由 C++ 实现的 `ObjectMonitor` 支撑。
 
-**体系二:j.u.c 显式锁 → AQS → CLH 变体队列**
+前面讲的锁升级(偏向锁 → 轻量级锁 → 重量级锁)、`_EntryList`(锁池)、`_WaitSet`(等待池)、`_owner`(持锁线程)，全都在这一套体系里。
 
-`java.util.concurrent` 包中的显式锁(ReentrantLock、ReentrantReadWriteLock 等)底层都基于 AQS(AbstractQueuedSynchronizer)AQS 是纯 Java 实现,内部使用 CLH 变体队列管理等待线程
+它的等待队列是 C++ 层面的双向循环链表，跟 AQS 没有任何关系。
 
-| 组件 | AQS 的使用方式 |
+**体系二：j.u.c 显式锁 → AQS → CLH 变体队列**
+
+`java.util.concurrent` 包里的显式锁(ReentrantLock、ReentrantReadWriteLock 等)，底层全都基于 AQS(AbstractQueuedSynchronizer)。
+
+AQS 是纯 Java 实现的，内部用 CLH 变体队列管理等待线程。
+
+不同组件只是"用 AQS 的方式"不一样：
+
+| 组件 | 用 AQS 的方式 |
 |------|-------------|
-| ReentrantLock | 独占模式,state=0 未锁定,state=1 锁定(可重入时递增) |
-| ReentrantReadWriteLock | 共享模式(读)+ 独占模式(写),state 高 16 位读锁计数,低 16 位写锁计数 |
-| Semaphore | 共享模式, state 表示剩余许可数 |
-| CountDownLatch | 共享模式, state 表示剩余计数 |
-| CyclicBarrier | 内部用 ReentrantLock + Condition,间接使用 AQS |
+| ReentrantLock | 独占模式，state=0 未锁定，state=1 锁定(可重入时递增) |
+| ReentrantReadWriteLock | 共享模式(读) + 独占模式(写)，state 高 16 位读锁计数、低 16 位写锁计数 |
+| Semaphore | 共享模式，state 表示剩余许可数 |
+| CountDownLatch | 共享模式，state 表示剩余计数 |
+| CyclicBarrier | 内部用 ReentrantLock + Condition，间接使用 AQS |
 
-**两套体系的核心区别**:
+**两套体系的核心区别**：
 
-| | synchronized (ObjectMonitor) | j.u.c 锁 (AQS) |
+| 维度 | synchronized (ObjectMonitor) | j.u.c 锁 (AQS) |
 |---|---|---|
 | 实现语言 | C++(JVM 内部) | Java(JDK 类库) |
 | 队列结构 | EntryList 双向循环链表 | CLH 变体双向链表 |
@@ -445,61 +436,53 @@ Java 并发锁有两套完全独立的底层实现:
 
 #### 区别一:条件等待——一个池子 vs 多个房间
 
-synchronized 只有一个 WaitSet,notifyAll 唤醒所有线程,无法精准唤醒:
+synchronized 一把锁只有一个 WaitSet，等不同条件的线程全挤在一起，`notifyAll()` 只能"广播"，把所有人都叫醒：
 
 ```java
-// synchronized: 只有一个 WaitSet,无法区分等待原因
+// synchronized：等"A"和等"B"的人混在同一个池子，分不开
 synchronized (lock) {
     while (!conditionA) {
-        lock.wait();       // 等待条件A的线程
+        lock.wait();     // 等 A 的人
     }
     // ...
-    lock.notifyAll();      // 唤醒所有人,等待条件B的线程也被白白叫醒
+    lock.notifyAll();    // 广播：等 B 的人也一起被无辜叫醒
 }
 
 synchronized (lock) {
     while (!conditionB) {
-        lock.wait();       // 等待条件B的线程,和等待条件A的线程混在同一个池子
+        lock.wait();     // 等 B 的人，和等 A 的挤在同一个池子
     }
     // ...
-    lock.notifyAll();      // 同样,所有人都被叫醒
+    lock.notifyAll();    // 广播：等 A 的人也被无辜叫醒
 }
 ```
 
-AQS 的 Condition 可以创建多个独立的等待房间,精准唤醒:
+AQS 的 Condition 一把锁能开多个"房间"，`signal()` 是"定向通知"，只叫醒该房间的人：
 
 ```java
-// AQS: 每个Condition是独立的等待房间
+// AQS：每个 Condition 是一个独立房间
 ReentrantLock lock = new ReentrantLock();
-Condition notFull  = lock.newCondition();  // 房间1: 等"不满"
-Condition notEmpty = lock.newCondition();  // 房间2: 等"不空"
+Condition notFull  = lock.newCondition();  // 房间1：等"不满"的生产者
+Condition notEmpty = lock.newCondition();  // 房间2：等"不空"的消费者
 
-// 生产者:缓冲区满时,只去 notFull 房间睡觉
+// 生产者：满了 → 只进 notFull 睡；放入后 → 只叫醒 notEmpty
 lock.lock();
 try {
-    while (count == items.length) {
-        notFull.await();          // 只在 notFull 房间等
-    }
+    while (count == items.length) notFull.await();
     put(x);
-    notEmpty.signal();            // 精准唤醒 notEmpty 房间的消费者
-} finally {
-    lock.unlock();
-}
+    notEmpty.signal();
+} finally { lock.unlock(); }
 
-// 消费者:缓冲区空时,只去 notEmpty 房间睡觉
+// 消费者：空了 → 只进 notEmpty 睡；取出后 → 只叫醒 notFull
 lock.lock();
 try {
-    while (count == 0) {
-        notEmpty.await();         // 只在 notEmpty 房间等
-    }
+    while (count == 0) notEmpty.await();
     take();
-    notFull.signal();             // 精准唤醒 notFull 房间的生产者
-} finally {
-    lock.unlock();
-}
+    notFull.signal();
+} finally { lock.unlock(); }
 ```
 
-这就是本文档前面 BoundedBuffer 例子的核心优势:synchronized 的 notifyAll 相当于广播,Condition 的 signal 相当于定向通知
+一句话总结：synchronized 的 `notifyAll` 是广播，Condition 的 `signal` 是定向通知。
 
 #### 区别二:可中断获取锁
 
@@ -547,7 +530,7 @@ t2.interrupt();  // 有效！t2 会从等待锁的状态中退出
 
 #### 区别三:超时获取锁
 
-synchronized 不支持超时,拿不到就死等AQS 支持 tryLock 带超时:
+synchronized 不支持超时，拿不到锁就一直死等；AQS 则可以用 `tryLock` 设置超时：
 
 ```java
 // synchronized: 拿不到锁就永远等
@@ -570,7 +553,7 @@ if (lock.tryLock(3, TimeUnit.SECONDS)) {
 
 #### 区别四:公平性选择
 
-synchronized 只有非公平模式AQS 可以选择公平或非公平:
+synchronized 只有非公平模式, AQS 可以选择公平或非公平:
 
 ```java
 // synchronized: 只有非公平
