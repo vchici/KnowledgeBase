@@ -76,5 +76,5 @@ dense 向量对专有名词、数字、代码等「字面精确匹配」场景�
 ## 互链
 
 - 表示从哪来：[03-Tokenizer与文本表示](03-Tokenizer与文本表示.md)
-- 组装成完整系统：[10-RAG系统](10-RAG系统.md)
+- 组装成完整系统：[10-RAG系统](10-RAG系统/10-RAG系统.md)
 - 项目实练（LangChain 版）：[RAG检索增强生成](../LangChain/RAG检索增强生成.md)

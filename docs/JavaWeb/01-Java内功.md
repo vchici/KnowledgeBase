@@ -28,7 +28,44 @@ public class MockUserServiceImpl implements UserService {
 
 **Spring关联：** `@Autowired` 注入的是接口类型 `UserService`，运行时才决定用哪个实现——这就是多态。你换实现类，Controller 一行代码都不用改。
 
-**坑：** 接口有两个实现类时，`@Autowired` 直接报错：
+```java
+// Controller 只面向接口编程，不写具体实现类
+@RestController
+public class UserController {
+
+    @Autowired
+    private UserService userService; // 声明的是接口，不是 UserServiceImpl
+
+    @GetMapping("/user/{id}")
+    public User getUser(@PathVariable String id) {
+        return userService.findUser(id); // 运行时才知道调用哪个实现
+    }
+}
+```
+
+**"运行时才决定"体现在两处：**
+1. 字段类型写的是接口 `UserService`，编译期不知道具体是哪个类；
+2. 真正塞进 `userService` 的实例由 Spring 容器在启动/运行期决定——你改配置就能换实现，`UserController` 一个字符都不用动。
+
+给上面两个实现类各加一个 `@Profile`，把"真实现"和"假实现"分到互斥的环境，就能直观看到"换实现不改 Controller"：
+
+```java
+@Service
+@Profile("prod")                        // 生产：真实现
+public class UserServiceImpl implements UserService {
+    public User findUser(String id) { return userDao.selectById(id); }
+}
+
+@Service
+@Profile("test")                        // 测试：假实现
+public class MockUserServiceImpl implements UserService {
+    public User findUser(String id) { return new User("001", "mock"); }
+}
+```
+
+切换 `spring.profiles.active=prod` 或 `test`，注入的对象就从"查数据库"变成"返回假数据"，而 `UserController` 一行都不用改。
+
+**坑：** 接口有两个实现类、且**两个都没用 `@Profile`/`@Primary` 区分**（就像开头第 9 行那样两个都只标了 `@Service`），Spring 会同时把它们注册进容器，`@Autowired` 不知道该注入哪个，直接报错：
 
 ```
 Field userService in com.example.Controller required a single bean, but 2 were found:
@@ -36,7 +73,9 @@ Field userService in com.example.Controller required a single bean, but 2 were f
     - mockUserServiceImpl
 ```
 
-解决方式：用 `@Qualifier("userServiceImpl")` 指定名字，或在一个实现类上加 `@Primary` 标记为默认。
+**上面 `@Profile` 为什么就不报错？** 因为 `@Profile("prod")` / `@Profile("test")` 把两个实现分到了互斥的环境：启动时只有一个会被注册成 Bean，`@Autowired` 始终只有一个候选，所以能正常"换实现"。**报错的本质不是"有两个实现类"，而是"同一环境下有两个候选 Bean 且无法唯一确定"。**
+
+不用 `@Profile` 的解决方式：`@Qualifier("userServiceImpl")` 指定名字，或在一个实现类上加 `@Primary` 标记为默认。
 
 ## 1.2 多态的实战意义
 
