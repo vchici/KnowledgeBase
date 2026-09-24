@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vue 3 响应式最小模型 · 可运行实验</title>
+<style>
+  :root {
+    --bg: #fafafa; --card: #ffffff; --border: #e4e4e7;
+    --text: #18181b; --muted: #71717a;
+    --blue: #2563eb; --blue-soft: #eff6ff;
+    --green: #0f9d58; --green-soft: #ecfdf3;
+    --amber: #b45309; --amber-soft: #fffbeb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 20px 48px; background: var(--bg); color: var(--text);
+    font: 15px/1.65 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  h2 { font-size: 15px; margin: 18px 0 8px; color: var(--muted); font-weight: 600; }
+  .essence { margin: 0 0 20px; color: var(--muted); }
+  .essence b { color: var(--text); }
+  .grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; align-items: start; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .card.wide { margin-top: 16px; }
+
+  /* effect 卡片 */
+  .fx {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    border: 1px solid var(--border); border-left: 3px solid var(--blue);
+    border-radius: 8px; padding: 8px 12px; margin-bottom: 8px;
+  }
+  .fx .tag { font: 600 12px/1.6 ui-monospace, Menlo, monospace; color: var(--blue); }
+  .fx .out { font: 500 14px/1.6 ui-monospace, Menlo, monospace; }
+  .fx .desc { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .fx.stopped { opacity: .45; border-left-color: var(--border); border-style: dashed; }
+
+  /* 按钮 */
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  button {
+    font: 500 13px/1.4 inherit; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: #fff; color: var(--text);
+  }
+  button:hover { border-color: var(--green); color: var(--green); }
+  button.warn { border-color: #f0c36c; background: var(--amber-soft); color: var(--amber); }
+  button.warn:hover { border-color: var(--amber); }
+  .hint { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+
+  /* 订阅表 */
+  .dep-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 6px 4px; border-bottom: 1px dashed var(--border); font: 13px/1.6 ui-monospace, Menlo, monospace;
+  }
+  .dep-row:last-child { border-bottom: none; }
+  .dep-key {
+    background: var(--amber-soft); color: var(--amber); border: 1px solid #f0c36c;
+    border-radius: 999px; padding: 1px 10px; font-weight: 600;
+  }
+  .chip {
+    background: var(--green-soft); color: var(--green); border: 1px solid #bbe8cf;
+    border-radius: 999px; padding: 1px 10px;
+  }
+  .dep-row .arr { color: var(--muted); }
+  .empty { color: var(--muted); font-size: 13px; padding: 4px; }
+
+  /* 日志 */
+  .log {
+    margin-top: 4px; height: 280px; overflow-y: auto; border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; background: #fcfcfc;
+    font: 12px/1.9 ui-monospace, Menlo, monospace;
+  }
+  .log .line { padding: 0 2px; border-radius: 4px; }
+  .log .collect { color: var(--blue); background: var(--blue-soft); }
+  .log .trigger { color: var(--green); background: var(--green-soft); }
+  .log .note { color: var(--amber); background: var(--amber-soft); }
+
+  /* 源码区 */
+  pre {
+    background: #f6f8fa; border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; font: 12.5px/1.7 ui-monospace, Menlo, monospace;
+  }
+  ol { margin: 8px 0; padding-left: 22px; }
+  ol li { margin-bottom: 6px; }
+
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Vue 3 响应式最小模型 · 可运行实验</h1>
+  <p class="essence">
+    本质：<b>读数据时记下「谁在用」（依赖收集），改数据时通知「用的人」重新执行（触发更新）</b>
+    —— 一套发布-订阅系统，Proxy 的 get / set 拦截是两个入口。
+  </p>
+
+  <div class="grid">
+    <section class="card">
+      <h2>四个正在运行的 effect（模拟渲染函数）</h2>
+
+      <div class="fx" id="card-A">
+        <span class="tag">effectA</span>
+        <span class="out" id="out-A"></span>
+        <span class="desc">只读 count</span>
+      </div>
+      <div class="fx" id="card-B">
+        <span class="tag">effectB</span>
+        <span class="out" id="out-B"></span>
+        <span class="desc">读 count，算平方（数据 → UI 的"计算"）</span>
+      </div>
+      <div class="fx" id="card-C">
+        <span class="tag">effectC</span>
+        <span class="out" id="out-C"></span>
+        <span class="desc">只读 name</span>
+      </div>
+      <div class="fx" id="card-D">
+        <span class="tag">effectD</span>
+        <span class="out" id="out-D"></span>
+        <span class="desc">只读 msg（这个属性现在还不存在）</span>
+      </div>
+
+      <h2>改数据（写操作）</h2>
+      <div class="btns">
+        <button id="btn-count">state.count++</button>
+        <button id="btn-name">state.name = 换个名字</button>
+        <button id="btn-msg">state.msg = 新增属性</button>
+        <button id="btn-raw" class="warn">绕过 Proxy：raw.count = 999</button>
+        <button id="btn-stop">停止 effectB 订阅</button>
+      </div>
+
+      <p class="hint">
+        点上面的按钮，观察右侧「事件日志」和哪些卡片自动重跑。
+        effect 重跑 = 输出自动更新，模拟的是「数据变了 → UI 自动重新渲染」。
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>deps 订阅表（key ← 依赖它的 effect）</h2>
+      <div id="deps"></div>
+
+      <h2>事件日志</h2>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+
+  <section class="card wide">
+    <h2>本页面真实在跑的核心源码</h2>
+<pre>// ── 与笔记 02 一致的最小模型（本页面只是额外加了日志）──
+let activeEffect = null                 // 全局指针：当前正在运行的 effect
+const deps = new Map()                  // 订阅表：key → Set&lt;effect&gt;
+
+function reactive(obj) {
+  return new Proxy(obj, {
+    get(target, key) {
+      if (activeEffect) {               // ① 依赖收集：谁在读这个 key，就把谁记入名单
+        if (!deps.has(key)) deps.set(key, new Set())
+        deps.get(key).add(activeEffect)
+      }
+      return target[key]
+    },
+    set(target, key, value) {
+      target[key] = value
+      deps.get(key)?.forEach(fn => fn()) // ② 触发更新：重跑名单里的所有 effect
+      return true
+    }
+  })
+}
+
+function effect(tag, fn) {              // 运行期间读到的每个 key 都会被收集
+  fn.tag = tag
+  activeEffect = fn
+  fn()
+  activeEffect = null
+}
+
+function stop(fn) {                     // 扩展：把 fn 从所有名单里摘掉（真实 Vue 3 同名 API）
+  for (const set of deps.values()) set.delete(fn)
+}</pre>
+
+    <h2>看完应该明白的四件事</h2>
+    <ol>
+      <li><b>收集发生在 get</b>：effect 运行期间读了哪些 key，就被记进哪些名单 —— 所以「渲染函数用了什么数据，改什么数据就会更新它」。</li>
+      <li><b>触发发生在 set</b>：名单是 Map&lt;key, Set&lt;函数&gt;&gt;，某个 key 变了就把对应的 Set 全部重跑。</li>
+      <li>Proxy 拦的是<b>整个对象</b>：连「定义时不存在的 key」（msg）也能拦到并触发 —— 这正是 Vue 2 的 defineProperty 做不到、需要 $set 补救的点。</li>
+      <li>只有通过 <b>reactive 返回的代理</b>操作才会被拦截；直接改原始对象 raw，数据变了但界面不动，还会造成数据与视图悄悄脱节。</li>
+    </ol>
+
+    <p class="hint">
+      对应笔记：docs/FullStack/前端/02-前端框架与原理.md。
+      真实 Vue 3 的差异：订阅表是 WeakMap&lt;对象, Map&lt;属性, Set&gt;&gt;；effect 嵌套用栈管理；
+      重跑前先清除旧依赖（处理 v-if 分支切换）；在此之上才有 ref / computed / watch。
+    </p>
+  </section>
+
+</div>
+
+<script>
+// ───────────────────────── 最小响应式模型 ─────────────────────────
+// 原始对象：永远保留一个引用，专门用来演示「绕过 Proxy」
+const raw = { count: 0, name: '小明' }
+
+let activeEffect = null                 // 全局指针：当前正在运行的 effect；null = 没人在读
+const deps = new Map()                  // 订阅表：key → Set<effect 函数>
+
+function reactive(obj) {
+  return new Proxy(obj, {
+    get(target, key) {
+      if (activeEffect) {
+        // ① 依赖收集：有 effect 在读这个 key → 记入它的名单（Set 自动去重）
+        if (!deps.has(key)) deps.set(key, new Set())
+        if (!deps.get(key).has(activeEffect)) {
+          deps.get(key).add(activeEffect)
+          logCollect(key, activeEffect.tag)
+          renderDeps()
+        }
+      }
+      return target[key]
+    },
+    set(target, key, value) {
+      const isNewKey = !(key in target) // Proxy 连「新增属性」都能拦到 —— Vue2 做不到的点
+      target[key] = value
+      // ② 触发更新：这个 key 变了 → 重跑名单里的所有 effect
+      const subs = deps.get(key)
+      logTrigger(key, subs ? [...subs].map(fn => fn.tag) : [], isNewKey)
+      if (subs) subs.forEach(fn => fn())
+      return true
+    }
+  })
+}
+
+function effect(tag, fn) {
+  fn.tag = tag
+  activeEffect = fn
+  fn()                                  // 运行期间所有 get 都会把 fn 收集进对应名单
+  activeEffect = null
+  return fn
+}
+
+function stop(fn) {
+  // 扩展：把 fn 从所有订阅名单里摘掉（真实 Vue 3 也有 stop）
+  let removed = 0
+  for (const set of deps.values()) if (set.delete(fn)) removed++
+  renderDeps()
+  return removed
+}
+
+const state = reactive(raw)
+const logBox = document.getElementById('log')   // 提前取好：初始 effect 运行时就会写日志
+
+// ───────────────────────── 四个 effect（模拟渲染函数）─────────────────────────
+const fxA = effect('effectA', function effectA() {
+  setText('out-A', `count = ${state.count}`)
+})
+const fxB = effect('effectB', function effectB() {
+  setText('out-B', `count 的平方 = ${state.count ** 2}`)
+})
+const fxC = effect('effectC', function effectC() {
+  setText('out-C', `你好，${state.name}！`)
+})
+const fxD = effect('effectD', function effectD() {
+  const v = state.msg
+  setText('out-D', v == null ? 'msg 还不存在（等下面的按钮去创建它）' : `msg = ${JSON.stringify(v)}`)
+})
+
+// ───────────────────────── 按钮交互 ─────────────────────────
+const names = ['小红', '阿强', '小刚', '小美']
+let nameIdx = 0
+let msgN = 0
+let bStopped = false
+
+document.getElementById('btn-count').onclick = () => { state.count++ }
+
+document.getElementById('btn-name').onclick = () => {
+  state.name = names[nameIdx++ % names.length]
+}
+
+document.getElementById('btn-msg').onclick = () => {
+  state.msg = `我是新增的属性 #${++msgN}`
+}
+
+document.getElementById('btn-raw').onclick = () => {
+  raw.count = 999                       // 绕过 Proxy：没有任何拦截器被触发
+  logNote('raw.count = 999 —— 绕过了 Proxy，无收集无触发，界面纹丝不动；' +
+          '但下次 effectA 因为别的原因重跑时会突然显示 999（数据与视图悄悄脱节）')
+}
+
+document.getElementById('btn-stop').onclick = function () {
+  if (!bStopped) {
+    const n = stop(fxB)
+    bStopped = true
+    document.getElementById('card-B').classList.add('stopped')
+    setText('out-B', '（已停止订阅：数据再变也不会重跑我）')
+    this.textContent = '恢复 effectB 订阅'
+    logNote(`stop(fxB)：把 effectB 从 ${n} 个 key 的名单里移除`)
+  } else {
+    bStopped = false
+    effect('effectB', fxB)              // 重新运行 → 重新读取 → 重新进入名单
+    document.getElementById('card-B').classList.remove('stopped')
+    this.textContent = '停止 effectB 订阅'
+    logNote('恢复：effectB 重新运行，读到 count，重新进入名单')
+  }
+}
+
+// ───────────────────────── 日志与订阅表渲染 ─────────────────────────
+function pushLog(cls, text) {
+  const div = document.createElement('div')
+  div.className = 'line ' + cls
+  div.textContent = text
+  logBox.prepend(div)
+  while (logBox.children.length > 80) logBox.lastChild.remove()
+}
+function logCollect(key, tag) {
+  pushLog('collect', `[收集] 读到 ${key} → 把 ${tag} 记入名单`)
+}
+function logTrigger(key, tags, isNewKey) {
+  const who = tags.length ? tags.join('、') : '（没有订阅者）'
+  pushLog('trigger', `[触发] ${key} 变了 → 重跑 ${who}` + (isNewKey ? '（新增的 key，Proxy 一样拦到了）' : ''))
+}
+function logNote(text) {
+  pushLog('note', text)
+}
+
+function renderDeps() {
+  const box = document.getElementById('deps')
+  if (deps.size === 0) {
+    box.innerHTML = '<div class="empty">（空 —— 还没有 effect 读过任何数据）</div>'
+    return
+  }
+  box.innerHTML = ''
+  for (const [key, set] of deps) {
+    const row = document.createElement('div')
+    row.className = 'dep-row'
+    const chips = [...set].map(fn => `<span class="chip">${fn.tag}</span>`).join(' ')
+    row.innerHTML =
+      `<span class="dep-key">${key}</span>` +
+      `<span class="arr">←</span>` +
+      `<span>${chips || '<span class="empty">（无订阅者）</span>'}</span>`
+    box.appendChild(row)
+  }
+}
+
+function setText(id, text) {
+  document.getElementById(id).textContent = text
+}
+</script>
+</body>
+</html>
