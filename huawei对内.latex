@@ -1,0 +1,165 @@
+%%
+%% Copyright (c) 2018-2023 Weitian LI
+%% CC BY 4.0 License
+%%
+%% Résumé
+%% ------
+%% A short document (1-2 pages) to sum up the job-related accomplishments
+%% and experience.
+%%
+%% Checklist
+%% ---------
+%% * Contact Information
+%% * Work History / Experience
+%% * Education
+%% * Skills
+%% * Summary & Objective (optional)
+%% * Hobbies & Interests (optional)
+%%
+%% Credits
+%% -------
+%% * CV vs. Resume: What is the Difference? When to Use Which?
+%%   https://uptowork.com/blog/cv-vs-resume-difference
+%% * How to Make a Resume: A Step-by-Step Guide (+30 Examples)
+%%   https://uptowork.com/blog/how-to-make-a-resume
+%% * Entry-Level Resume: Sample and Complete Guide (+20 Examples)
+%%   https://uptowork.com/blog/entry-level-resume-example
+%%
+
+% English version
+\documentclass[zh]{resume}
+
+% Adjust icon size (default: same size as the text)
+\iconsize{\Large}
+
+% File information shown at the footer of the last page
+\fileinfo{%
+  \faCopyright{} 陈其高简历2026 \hspace{0.5em}
+  %\creativecommons{by}{4.0} \hspace{0.5em}
+  %\githublink{account}{repo} \hspace{0.5em}
+  \faEdit{} \today
+}
+
+\name{其高}{陈}
+
+\keywords{word1, word2, ...}
+
+% \tagline{\icon{\faBinoculars}} <position-to-look-for>}
+% \tagline{<current-position>}
+
+% \photo{<height>}{<filename>}
+
+\profile{
+  \mobile{18171095634}
+  \email{1820011129@qq.com}
+  \github{vchici}
+  \\
+  \university{中南大学}
+  \degree{计算机科学与技术卓越人才培养专业·本科}
+  \birthday{2001.11.29（25岁）}
+  \address{湖北·武汉}
+  % Custom information:
+  % \icontext{<icon>}{<text>}
+  % \iconlink{<icon>}{<link>}{<text>}
+}
+
+\begin{document}
+\makeheader
+
+%======================================================================
+% Summary & Objectives
+%======================================================================
+中南大学计算机科学与技术图灵班本科生，主修算法与人工智能方向，基础扎实、成绩优异。坚持“以构建促学习”，独立落地 RAG 知识库问答、多智能体协作与 AI 日报工具，沉淀为可复用的工程实践与个人生产力。
+
+%======================================================================
+\sectionTitle{综合能力 \& 荣誉奖项}{\faTrophy}
+%======================================================================
+\begin{competences}[10em]
+  \comptence{Coursework}{高级计算机算法-99，JAVA 语言与系统设计-96，计算机体系结构-93，操作系统原理-92，图论与组合数学-92}
+  \comptence{Credentials}{CET4-615 / CET6-562，NECCS 全国三等奖，CCF CSP 170 分，院级奖学金}
+  \comptence{Productivity}{Git・DevEco Studio Profiling・Perfetto Trace・Trae・Premiere Pro}
+  \comptence{Extracurricular}{钢琴十级 A+，湖北省蒲公英钢琴大赛省二等奖，费曼学习法维护技术博客与知识库，业余视频剪辑}
+\end{competences}
+
+%======================================================================
+\sectionTitle{教育经历 \& 工作经历}{\faBriefcase}
+%======================================================================
+\begin{educations}
+    \education%
+        {2024.06}%
+        [2020.09]%
+        {中南大学}%
+        {计算机学院}%
+        {计算机科学与技术卓越人才培养专业}%
+        {本科}
+    \separator{0.5ex}
+\end{educations}
+\begin{experiences}
+  \experience%
+    [至今]%
+    {2025.05}%
+    {IDE开发+2D技术赋能支持@华为技术有限公司}%
+    [\begin{itemize}
+      \item 研发鸿蒙 IDE 体检工具，主导图片大纹理和组件渲染耗时模块特性开发工作，代码级定位超出容器组件尺寸解压的图片，创建、更新、复用耗时过长的组件，代码量累计 20k+，无现网舆情问题，体检工具月活 7k+ 人，使用应用数达 100+，通过工具的打样驻场解决 TOP 应用多个场景的转场、滑动性能问题，小红书大图聊天页从 45 帧优化为 120 帧，酷狗音乐搜索页响应时延优化 150ms，美团闪购页转场完成时延优化 100ms，助理伙伴关键场景达 S 标。
+      \item 性能责任田主：开发优化最佳实践 / Sample / 指南 / 课程 / Codelab 共 15+ 项，主导跨部门性能文章准入评审，推动优质内容上架赋能开发者。
+      \item 共建故障分析 Skill，集成进 DevEco Code：优化崩溃故障 Skill 分析流程 5+ 条，涵盖脚本定点提取日志，修复建议模板以 diff 代码块给出改动前后对比，堆栈反解按崩溃版本匹配 sourcemap 等问题，在流程和用户体验上优化，支撑三级根因定位准确率达到 95\%+。
+    \end{itemize}]
+\end{experiences}
+\begin{experiences}
+  \experience%
+    [2025.05]%
+    {2024.06}%
+    {Android+Unity客户端@北京奇妙王国}%
+    [\begin{itemize}
+      \item 参与多品类休闲游戏开发，NutSort/BallSort 在 Google Play 安装量超百万。
+      \item 单人主导通用周边系统，沉淀为跨品类可复用模块。
+      \item 自研二维虚拟化滚动列表（横纵双向可视窗口 + item 复用），长列表流畅不掉帧；图片加载“后台解码 + 主线程 GPU 上传”流水线，防复用竞态；对齐原生惯性曲线，手感与原生一致。
+    \end{itemize}]
+\end{experiences}
+
+%======================================================================
+\sectionTitle{技术能力}{\faCogs}
+%======================================================================
+\begin{itemize}
+  \item \textbf{移动端与跨端开发}：Android（Java/Kotlin）、HarmonyOS（ArkTS/ArkUI）、Unity（C\#）多端开发；
+    OkHttp / Retrofit / RxAndroid 网络与响应式栈；AspectJ 编译期织入、组件化封装、基线 + 定制架构。
+  \item \textbf{性能优化与 DFX}：DevEco Studio 性能 Profiling、Perfetto / hiprofiler 系统级 Trace 分析；
+    渲染性能优化（二维虚拟化列表、图片加载流水线）；CppCrash / JSCrash / AppFreeze 故障定界与根因分析。
+  \item \textbf{AI 工程与 Agent}：Agent 工程化（subAgent 编排、Skill 设计、MCP 工具接入）、
+    RAG 检索增强（LangChain / 向量数据库）、意图识别与提示工程；Python / PyTorch。
+  \item \textbf{服务端与 IDE 工程}：Java 服务端（线程池并发编排、MyBatis 持久化与 SQL 调优）、MySQL；
+    IntelliJ Platform 插件开发（JSON 接口契约）；Linux/Shell 脚本化构建、CI 打包与资源裁剪、Git。
+\end{itemize}
+
+%======================================================================
+\sectionTitle{开源项目}{\faCode}
+%======================================================================
+\begin{itemize}
+  \item \link{https://gitcode.com/HarmonyOS_Codelabs/TransitionPerformanceIssue?source_module=search_project}{\texttt{\textbf{转场场景性能问题分析与编码优化}}}:
+    常见性能问题及对应最佳编码方案实践（下载使用量 1700+），配套独立开发的 \link{https://developer.huawei.com/consumer/cn/training/course/slightMooc/C101762247678561772?choosedChapterIds=2cf51537095b49028fcdf70068676ef3,cfec2715bb404fb2865cde7962f6825a}{\textbf{视频课程}}（评论 34/35 五星）与 \link{https://developer.huawei.com/consumer/cn/codelabsPortal/carddetails/tutorials_NEXT-Transition-Performance-Analysis}{\textbf{Codelab 教程}}（评级高级），上架华为开发者学堂。
+  \item \link{https://vchici.github.io/KnowledgeBase/}{\texttt{\textbf{个人知识库储备}}}:
+    基于 VitePress + GitHub Pages 部署，沉淀 150+ 篇技术笔记、覆盖 18 个领域（数据库 / AI 工程 / LangChain / 后端等）；自实现中文分词搜索与笔记互链知识图谱，沉淀方法论 SOP。
+  \item \link{https://github.com/vchici/smark-kb}{\texttt{\textbf{基于RAG的知识库问答系统}}}:
+    基于 RAG 实现私有文档问答系统：解析 PDF / DOCX / TXT / MD 4 类文档，500 字符 / 10\% 重叠切片存入 Chroma（cosine 相似度）；问答双路召回 Top-3 知识块 + Top-2 跨会话记忆（排除当前会话防自引用），短期对话 20 条滑动窗口 + 每轮写回长期记忆库；答案附来源引用，FastAPI 承载 5 个 REST 接口（文档增删 / 流式问答）。
+  \item \link{https://github.com/vchici/DailyReport}{\texttt{\textbf{AI 驱动个人日报工具}}}:
+    自然语言随手记录待办与完成事项，自动识别意图并建立“完成 ↔ 待办”关联，一键输出结构化日报；倒排索引 + Embedding 双路检索，全异步架构，PyPI 迭代发布；基于 MCP 协议实现 stdio Server，将完整功能收敛为 12 个标准工具，供任意 Agent 宿主即插即用。
+  \item \link{https://github.com/VitaminK2001/ImageCompress}{\texttt{\textbf{图片并行压缩工具}}}:
+    FFmpeg 批量 JPG → WebP 转码，实测体积降至原图的 40\% 左右（源图质量越高收益越大），SSIM 0.98+ 画质基本无损；区别于一般压缩工具逐张串行处理，10 路进程并发批量压缩（并发可配）。
+  \item \link{https://github.com/VitaminK2001/VideoCompress}{\texttt{\textbf{视频并行压缩工具}}}:
+    FFmpeg 批量压缩 5 种视频格式（mp4 / mov / avi / wmv / mkv）：NVIDIA H.265 硬件编码，同画质体积较 H.264 约省 50\%；分辨率 / 帧率 / 码率可自定义收敛，实测端到端体积降至 10\%（720p / 15fps / 400kbps）；区别于剪辑软件单会话逐个导出，支持 4 路进程并发批量压缩。
+  \item \link{https://gitee.com/savior2001/deep-learning/tree/master/MNIST}{\texttt{\textbf{对比线性/CNN网络模型训练，识别手写数据集}}}:
+    （python,pytorch）CNN架构优化，早停法监测验证集损失，卷积网络准确率96.41\%，线性模型准确率89.2\%。
+  \item \link{https://gitee.com/savior2001/deep-learning/tree/master/cats_dogs_classification}{\texttt{\textbf{自定义猫狗图片数据集/CIFAR10图片数据集分类}}}:
+    （python,pytorch）GoogLeNet 迁移学习：冻结主干 1300 万参数、仅重训分类头保留 ImageNet 通用特征，权重衰减（L2 正则化）抑制小样本过拟合；自建 CNN 完成 CIFAR-10 6 万张样本十分类训练、保存与部署测试。
+\end{itemize}
+
+%======================================================================
+\sectionTitle{研究成果}{\faAtom}
+%======================================================================
+\begin{itemize}
+  \item \textbf{基于VisionTransform的文本生成情感色彩图像}:（本科毕设，评级优秀，\textbf{学院前10\%}）自研 ViT 生成模型 TDIST（NLP×CV 交叉创新）：融合 VAD 情感词典与 BERT 词嵌入构建语义 + 情感联合文本表示，多头交叉注意力对齐文本-图像语义空间；分阶段训练——ViT 生成全局结构、CNN 细化局部纹理，突破 GAN 纹理模糊缺陷，SSIM/FAD/VLS 指标仅次于 CLVA 与 LST。
+\end{itemize}
+
+
+
+\end{document}
