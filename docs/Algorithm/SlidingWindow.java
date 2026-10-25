@@ -18,6 +18,7 @@ public class SlidingWindow {
 
     // ==================== LC 209. 长度最小的子数组（求最短） ====================
 
+    // #region LC209
     /**
      * 正整数数组，找和 >= target 的最短连续子数组长度，不存在返回 0。
      * 思路：右扩张加数；一满足 sum >= target 就尽量缩左边——正数保证缩完
@@ -34,6 +35,7 @@ public class SlidingWindow {
         }
         return ans == Integer.MAX_VALUE ? 0 : ans;
     }
+    // #endregion LC209
 
     static void demoMinSubArrayLen() {
         System.out.println("== LC 209. 长度最小的子数组（求最短窗口） ==");
@@ -48,6 +50,7 @@ public class SlidingWindow {
 
     // ==================== LC 3. 无重复字符的最长子串（求最长） ====================
 
+    // #region LC3
     /**
      * 找不含重复字符的最长子串长度。
      * 思路：与 209 镜像。r 扩张新字符；若造成重复，l 收缩到重复消除为止；
@@ -65,6 +68,7 @@ public class SlidingWindow {
         }
         return ans;
     }
+    // #endregion LC3
 
     static void demoLengthOfLongestSubstring() {
         System.out.println("== LC 3. 无重复字符的最长子串（求最长窗口） ==");
