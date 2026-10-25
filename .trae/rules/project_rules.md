@@ -14,7 +14,7 @@
 - 所有算法题笔记以**状态演化/可视化**为主，完整代码不贴正文
 - 状态演化用 `<details><summary>状态演化</summary>` 包裹，默认折叠，点击展开
 - 可视化形式按题型匹配：双指针用演化表、DP 用填表 DAG、回溯用剪枝决策树、KMP 用对齐图
-- 代码统一放 `docs/Algorithm/` 下对应的 `.java` 文件，笔记末尾纯文本注明文件和方法名
+- 代码统一放 `docs/Algorithm/` 下对应的 `.java` 文件，笔记末尾用 GitHub blob 链接引用（格式：[文件名](https://github.com/vchici/KnowledgeBase/blob/github/docs/Algorithm/文件名.java) → 方法名）
 - 演化表必须有具体示例（数组/字符串 + target），每步一行展示指针/状态怎么变
 
 ## Lessons Learned
