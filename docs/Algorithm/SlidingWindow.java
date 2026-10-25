@@ -14,6 +14,8 @@ public class SlidingWindow {
     public static void main(String[] args) {
         demoMinSubArrayLen();           // LC 209
         demoLengthOfLongestSubstring(); // LC 3
+        demoFindAnagrams();             // LC 438
+        demoMinWindow();                // LC 76
     }
 
     // ==================== LC 209. 长度最小的子数组（求最短） ====================
@@ -75,6 +77,71 @@ public class SlidingWindow {
         System.out.println("pwwkew   → " + lengthOfLongestSubstring("pwwkew")
                 + "（期望 3，wke）");
         System.out.println("空串     → " + lengthOfLongestSubstring("") + "（期望 0）");
+        System.out.println();
+    }
+
+    // ==================== LC 438. 找到字母异位词（定长窗口） ====================
+
+    /**
+     * 定长窗口：长度相同 + 每个字母计数相同 = 异位词。
+     * 窗口每滑一步只做「右端进一个、左端出一个」，比较两个计数数组。
+     */
+    public static java.util.List<Integer> findAnagrams(String s, String p) {
+        java.util.List<Integer> ans = new java.util.ArrayList<>();
+        int[] need = new int[26], win = new int[26];
+        for (char c : p.toCharArray()) need[c - 'a']++;
+        int m = p.length();
+        for (int r = 0; r < s.length(); r++) {
+            win[s.charAt(r) - 'a']++;
+            if (r >= m) win[s.charAt(r - m) - 'a']--;
+            if (r >= m - 1 && java.util.Arrays.equals(need, win)) ans.add(r - m + 1);
+        }
+        return ans;
+    }
+
+    static void demoFindAnagrams() {
+        System.out.println("== LC 438. 找到字母异位词 ==");
+        System.out.println("cbaebabacd, p=abc → " + findAnagrams("cbaebabacd", "abc") + "（期望 [0,6]）");
+        System.out.println("abab, p=ab        → " + findAnagrams("abab", "ab") + "（期望 [0,1,2]）");
+        System.out.println();
+    }
+
+    // ==================== LC 76. 最小覆盖子串（不定长通用模板） ====================
+
+    /**
+     * 不定长窗口完全体。need 记 t 的需求，valid 记「已凑够需求的字符种类数」。
+     * 右扩凑需求；valid 齐了就左缩逼近最短。
+     */
+    public static String minWindow(String s, String t) {
+        int[] need = new int[128], win = new int[128];
+        for (char c : t.toCharArray()) need[c]++;
+        int needKinds = 0;
+        for (int x : need) if (x > 0) needKinds++;
+
+        int l = 0, valid = 0, minLen = Integer.MAX_VALUE, start = 0;
+        for (int r = 0; r < s.length(); r++) {
+            char c = s.charAt(r);
+            if (need[c] > 0) {
+                win[c]++;
+                if (win[c] == need[c]) valid++;
+            }
+            while (valid == needKinds) {
+                if (r - l + 1 < minLen) { minLen = r - l + 1; start = l; }
+                char d = s.charAt(l++);
+                if (need[d] > 0) {
+                    if (win[d] == need[d]) valid--;
+                    win[d]--;
+                }
+            }
+        }
+        return minLen == Integer.MAX_VALUE ? "" : s.substring(start, start + minLen);
+    }
+
+    static void demoMinWindow() {
+        System.out.println("== LC 76. 最小覆盖子串 ==");
+        System.out.println("ADOBECODEBANC, t=ABC → " + minWindow("ADOBECODEBANC", "ABC") + "（期望 BANC）");
+        System.out.println("a, t=a              → " + minWindow("a", "a") + "（期望 a）");
+        System.out.println("a, t=aa             → " + minWindow("a", "aa") + "（期望 空）");
         System.out.println();
     }
 }
