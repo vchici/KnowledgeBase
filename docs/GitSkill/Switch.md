@@ -41,3 +41,11 @@ git branch -D <branch>   # 强制删除，即使未合并
 易混淆：`git switch -d <commit>` 不是删除，而是进入分离 HEAD 状态——检出某个提交但不挂分支。
 
 删除**远程**分支走的是 push 操作，见[Push](./Push.md#删除远程分支)
+
+# 从历史提交新建分支并切换
+
+```bash
+git switch -c <新分支> <hash>
+```
+
+当前分支指针不受影响。工作区有未提交修改时该不该带过去、怎么隔离，见[从提交新建分支](./BranchFromCommit.md)

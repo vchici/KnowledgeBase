@@ -21,7 +21,7 @@
 | 摘取指定提交 | `git cherry-pick <commit>` |
 | 提交信息规范 | `feat:` / `fix:` / `docs:` / `refactor:` |
 
-> 关联笔记：[Restore](../../GitSkill/Restore.md)、[Reset](../../GitSkill/Reset.md)、[Revert](../../GitSkill/Revert.md)、[Stash](../../GitSkill/Stash.md)、[CherryPick](../../GitSkill/CherryPick.md)
+> 关联笔记：[Restore](../../GitSkill/Restore.md)、[Reset](../../GitSkill/Reset.md)、[Revert](../../GitSkill/Revert.md)、[Stash](../../GitSkill/Stash.md)、[CherryPick](../../GitSkill/CherryPick.md)、[BranchFromCommit](../../GitSkill/BranchFromCommit.md)
 
 ## 分支策略
 
